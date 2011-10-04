@@ -237,8 +237,5 @@ T5.SearchTools = (function() {
         }
     };
     
-    // make the module observable
-    T5.observable(module);
-    
     return module;
 })();

@@ -47,7 +47,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         panFrame.removeChild(paper.canvas);
     } // handleDetach
     
-    function handleBeforeLayerRemove(evt, layer) {
+    function handleLayerRemove(targetView, layer) {
         // if the layer has a find method, then get the objects on the layer
         if (layer.find) {
             var drawables = layer.find();
@@ -59,7 +59,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         } // if
     } // handleLayerRemove
     
-    function handlePredraw(evt, layers, viewport, tickcount, hits) {
+    function handlePredraw(layers, viewport, tickcount, hits) {
         // save the viewport x and y as the draw offset x and y
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
@@ -69,11 +69,11 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         currentObjects = {};
     } // handlePredraw
     
-    function handleStyleDefined(evt, styleId, styleData) {
+    function handleStyleDefined(styleId, styleData) {
         styles[styleId] = convertStyleData(styleData);
     } // handleStyleDefined
     
-    function handleReset(evt) {
+    function handleReset() {
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // handleReset
     
@@ -92,11 +92,11 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     
     function loadStyles() {
         T5.Style.each(function(id, data) {
-            handleStyleDefined(null, id, data);
+            handleStyleDefined(id, data);
         });
         
         // capture style defined events so we know about new styles
-        T5.bind('styleDefined', handleStyleDefined);
+        eve.on('t5.style.*', handleStyleDefined);
     } // loadStyles
     
     function objInit(rObject, drawable) {
@@ -326,10 +326,10 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     });
     
     // handle the predraw event
-    _this.bind('predraw', handlePredraw);
-    _this.bind('detach', handleDetach);
-    view.bind('reset', handleReset);
-    view.bind('beforeLayerRemove', handleBeforeLayerRemove);
+    eve.on('t5.view.predraw.' + view.id, handlePredraw);
+    eve.on('t5.view.renderer.detach.' + view.id, handleDetach);
+    eve.on('t5.view.reset.' + view.id, handleReset);
+    eve.on('t5.view.layer.remove.' + view.id, handleLayerRemove);
     
     // load styles
     loadStyles();

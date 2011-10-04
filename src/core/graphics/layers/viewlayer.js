@@ -42,9 +42,6 @@ function ViewLayer(view, panFrame, container, params) {
     // initialise members
     this.visible = params.visible;
     this.view = view;
-
-    // make view layers observable
-    _observable(_extend(this, params));
 }; // ViewLayer constructor
 
 ViewLayer.prototype = {

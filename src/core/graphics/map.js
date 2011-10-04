@@ -23,7 +23,7 @@ var Map = function(container, params) {
         residualScaleFactor = 0,
         zoomTimeout = 0;
     
-    function checkScaling(evt, scaleFactor) {
+    function checkScaling(targetView, scaleFactor) {
         // calculate the scale factor exponent
         var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
@@ -39,13 +39,13 @@ var Map = function(container, params) {
         } // ifg
     } // checkScaling
     
-    function handleRefresh(evt) {
-        var viewport = _self.viewport();
+    function handleRefresh() {
+        var viewport = _this.viewport();
         
         // check the offset has changed (refreshes can happen for other reasons)
         if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
             // trigger the event
-            _self.trigger('boundsChange', bounds());
+            eve('t5.view.boundsChange.' + _this.id, bounds());
 
             // update the last bounds change offset
             lastBoundsChangeOffset.x = viewport.x;
@@ -59,7 +59,7 @@ var Map = function(container, params) {
     ### bounds(newBounds)
     */
     function bounds(newBounds, maxZoomLevel) {
-        var viewport = _self.viewport();
+        var viewport = _this.viewport();
         
         if (newBounds) {
             // calculate the zoom level we are going to
@@ -70,8 +70,8 @@ var Map = function(container, params) {
         }
         else {
             return new GeoJS.BBox(
-                new GeoXY(viewport.x, viewport.y2).sync(_self, true).pos(),
-                new GeoXY(viewport.x2, viewport.y).sync(_self, true).pos()
+                new GeoXY(viewport.x, viewport.y2).sync(_this, true).pos(),
+                new GeoXY(viewport.x2, viewport.y).sync(_this, true).pos()
             );
         } // if..else
     } // bounds
@@ -84,8 +84,8 @@ var Map = function(container, params) {
         if (_is(value, typeNumber)) {
             value = max(params.minZoom, min(params.maxZoom, value | 0));
             if (value !== zoomLevel) {
-                var viewport = _self.viewport(),
-                    offset = _self.offset(),
+                var viewport = _this.viewport(),
+                    offset = _this.offset(),
                     halfWidth = viewport.w / 2,
                     halfHeight = viewport.h / 2,
                     scaling = pow(2, value - zoomLevel),
@@ -96,41 +96,41 @@ var Map = function(container, params) {
                 zoomLevel = value;
 
                 // update the offset
-                _self.offset(
+                _this.offset(
                     ((zoomX || offset.x + halfWidth) - scaledHalfWidth) * scaling,
                     ((zoomY || offset.y + halfHeight) - scaledHalfHeight) * scaling
                 );
 
                 // trigger the change
-                _self.trigger('zoom', value);
-                _self.trigger('reset');
+                eve('t5.view.zoom.' + _this.id, value);
+                eve('t5.view.reset.' + _this.id);
                 
                 // update the rads per pixel to reflect the zoom level change
-                rpp = _self.rpp = radsPerPixel(zoomLevel);
+                rpp = _this.rpp = radsPerPixel(zoomLevel);
 
                 // calculate the grid size
-                _self.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
+                _this.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
 
                 // reset the scale factor
-                _self.scale(1 + residualScaleFactor, false, true);
+                _this.scale(1 + residualScaleFactor, false, true);
                 residualScaleFactor = 0;
 
                 // reset scaling and resync the map
-                _self.trigger('resync');
+                eve('t5.view.resync.' + _this.id);
 
                 // refresh the display
-                _self.refresh();
+                _this.refresh();
             } // if
             
             // return the view so we can chain
-            return _self; 
+            return _this; 
         }
         else {
             return zoomLevel;
         } // if..else
     } // zoom
     
-    var _self = _extend(new View(container, params), {
+    var _this = _extend(new View(container, params), {
         XY: GeoXY, 
         
         bounds: bounds,
@@ -138,11 +138,11 @@ var Map = function(container, params) {
     });
     
     // initialise the default rpp
-    rpp = _self.rpp = radsPerPixel(zoomLevel);
+    rpp = _this.rpp = radsPerPixel(zoomLevel);
     
     // bind events
-    _self.bind('refresh', handleRefresh);
-    _self.bind('scaleChanged', checkScaling);
+    eve.on('t5.view.refresh.' + _this.id, handleRefresh);
+    eve.on('t5.view.scale.' + _this.id, checkScaling);
     
-    return _self;
+    return _this;
 };

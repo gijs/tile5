@@ -44,9 +44,6 @@ var Drawable = function(view, layer, params) {
     this.translateX = 0;
     this.translateY = 0;
     this.visible = true;
-    
-    // make the shape observable
-    _observable(this);
 };
 
 Drawable.prototype = {
@@ -213,7 +210,7 @@ Drawable.prototype = {
             );
         
         if (moved) {
-            this.trigger('move', this, bounds, this.bounds);
+            eve('t5.move.' + this.typeName + '.' + this.id, this, bounds, this.bounds);
         } // if
         
         // update the bounds

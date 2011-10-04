@@ -37,7 +37,7 @@ var Style = (function() {
     */
     function define(p1, p2) {
         if (_is(p1, typeString)) {
-            T5.trigger('styleDefined', p1, styles[p1] = p2);
+            eve('t5.style.' + p1, p1, styles[p1] = p2);
             
             return p1;
         }

@@ -908,6 +908,290 @@
 (function() {
     /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
     
+    // ┌──────────────────────────────────────────────────────────────────────────────────────┐ \\
+    // │ Eve 0.3.2 - JavaScript Events Library                                                │ \\
+    // ├──────────────────────────────────────────────────────────────────────────────────────┤ \\
+    // │ Copyright (c) 2008-2011 Dmitry Baranovskiy (http://dmitry.baranovskiy.com/)          │ \\
+    // │ Licensed under the MIT (http://www.opensource.org/licenses/mit-license.php) license. │ \\
+    // └──────────────────────────────────────────────────────────────────────────────────────┘ \\
+    
+    (function (glob) {
+        var version = "0.3.2",
+            has = "hasOwnProperty",
+            separator = /[\.\/]/,
+            wildcard = "*",
+            fun = function () {},
+            numsort = function (a, b) {
+                return a - b;
+            },
+            current_event,
+            stop,
+            events = {n: {}},
+        /*\
+         * eve
+         [ method ]
+         **
+         * Fires event with given `name`, given scope and other parameters.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated
+         - scope (object) context for the event handlers
+         - varargs (...) the rest of arguments will be sent to event handlers
+         **
+         = (object) array of returned values from the listeners
+        \*/
+            eve = function (name, scope) {
+                var e = events,
+                    oldstop = stop,
+                    args = Array.prototype.slice.call(arguments, 2),
+                    listeners = eve.listeners(name),
+                    z = 0,
+                    f = false,
+                    l,
+                    indexed = [],
+                    queue = {},
+                    out = [],
+                    errors = [];
+                current_event = name;
+                stop = 0;
+                for (var i = 0, ii = listeners.length; i < ii; i++) if ("zIndex" in listeners[i]) {
+                    indexed.push(listeners[i].zIndex);
+                    if (listeners[i].zIndex < 0) {
+                        queue[listeners[i].zIndex] = listeners[i];
+                    }
+                }
+                indexed.sort(numsort);
+                while (indexed[z] < 0) {
+                    l = queue[indexed[z++]];
+                    out.push(l.apply(scope, args));
+                    if (stop) {
+                        stop = oldstop;
+                        return out;
+                    }
+                }
+                for (i = 0; i < ii; i++) {
+                    l = listeners[i];
+                    if ("zIndex" in l) {
+                        if (l.zIndex == indexed[z]) {
+                            out.push(l.apply(scope, args));
+                            if (stop) {
+                                stop = oldstop;
+                                return out;
+                            }
+                            do {
+                                z++;
+                                l = queue[indexed[z]];
+                                l && out.push(l.apply(scope, args));
+                                if (stop) {
+                                    stop = oldstop;
+                                    return out;
+                                }
+                            } while (l)
+                        } else {
+                            queue[l.zIndex] = l;
+                        }
+                    } else {
+                        out.push(l.apply(scope, args));
+                        if (stop) {
+                            stop = oldstop;
+                            return out;
+                        }
+                    }
+                }
+                stop = oldstop;
+                return out.length ? out : null;
+            };
+        /*\
+         * eve.listeners
+         [ method ]
+         **
+         * Internal method which gives you array of all event handlers that will be triggered by the given `name`.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated
+         **
+         = (array) array of event handlers
+        \*/
+        eve.listeners = function (name) {
+            var names = name.split(separator),
+                e = events,
+                item,
+                items,
+                k,
+                i,
+                ii,
+                j,
+                jj,
+                nes,
+                es = [e],
+                out = [];
+            for (i = 0, ii = names.length; i < ii; i++) {
+                nes = [];
+                for (j = 0, jj = es.length; j < jj; j++) {
+                    e = es[j].n;
+                    items = [e[names[i]], e[wildcard]];
+                    k = 2;
+                    while (k--) {
+                        item = items[k];
+                        if (item) {
+                            nes.push(item);
+                            out = out.concat(item.f || []);
+                        }
+                    }
+                }
+                es = nes;
+            }
+            return out;
+        };
+        
+        /*\
+         * eve.on
+         [ method ]
+         **
+         * Binds given event handler with a given name. You can use wildcards “`*`” for the names:
+         | eve.on("*.under.*", f);
+         | eve("mouse.under.floor"); // triggers f
+         * Use @eve to trigger the listener.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated, with optional wildcards
+         - f (function) event handler function
+         **
+         = (function) returned function accept one number parameter that represents z-index of the handler. It is optional feature and only used when you need to ensure that some subset of handlers will be invoked in a given order, despite of the order of assignment. 
+         > Example:
+         | eve.on("mouse", eat)(2);
+         | eve.on("mouse", scream);
+         | eve.on("mouse", catch)(1);
+         * This will ensure that `catch` function will be called before `eat`.
+         * If you want to put you hadler before not indexed handlers specify negative value.
+         * Note: I assume most of the time you don’t need to worry about z-index, but it’s nice to have this feature “just in case”.
+        \*/
+        eve.on = function (name, f) {
+            var names = name.split(separator),
+                e = events;
+            for (var i = 0, ii = names.length; i < ii; i++) {
+                e = e.n;
+                !e[names[i]] && (e[names[i]] = {n: {}});
+                e = e[names[i]];
+            }
+            e.f = e.f || [];
+            for (i = 0, ii = e.f.length; i < ii; i++) if (e.f[i] == f) {
+                return fun;
+            }
+            e.f.push(f);
+            return function (zIndex) {
+                if (+zIndex == +zIndex) {
+                    f.zIndex = +zIndex;
+                }
+            };
+        };
+        /*\
+         * eve.stop
+         [ method ]
+         **
+         * Is used inside event handler to stop event
+        \*/
+        eve.stop = function () {
+            stop = 1;
+        };
+        /*\
+         * eve.nt
+         [ method ]
+         **
+         * Could be used inside event handler to figure out actual name of the event.
+         **
+         > Arguments
+         **
+         - subname (string) #optional subname of the event
+         **
+         = (string) name of the event, if `subname` is not specified
+         * or
+         = (boolean) `true`, if current event’s name contains `subname`
+        \*/
+        eve.nt = function (subname) {
+            if (subname) {
+                return new RegExp("(?:\\.|\\/|^)" + subname + "(?:\\.|\\/|$)").test(current_event);
+            }
+            return current_event;
+        };
+        /*\
+         * eve.unbind
+         [ method ]
+         **
+         * Removes given function from the list of event listeners assigned to given name.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated, with optional wildcards
+         - f (function) event handler function
+        \*/
+        eve.unbind = function (name, f) {
+            var names = name.split(separator),
+                e,
+                key,
+                splice,
+                cur = [events];
+            for (var i = 0, ii = names.length; i < ii; i++) {
+                for (var j = 0; j < cur.length; j += splice.length - 2) {
+                    splice = [j, 1];
+                    e = cur[j].n;
+                    if (names[i] != wildcard) {
+                        if (e[names[i]]) {
+                            splice.push(e[names[i]]);
+                        }
+                    } else {
+                        for (key in e) if (e[has](key)) {
+                            splice.push(e[key]);
+                        }
+                    }
+                    cur.splice.apply(cur, splice);
+                }
+            }
+            for (i = 0, ii = cur.length; i < ii; i++) {
+                e = cur[i];
+                while (e.n) {
+                    if (f) {
+                        if (e.f) {
+                            for (j = 0, jj = e.f.length; j < jj; j++) if (e.f[j] == f) {
+                                e.f.splice(j, 1);
+                                break;
+                            }
+                            !e.f.length && delete e.f;
+                        }
+                        for (key in e.n) if (e.n[has](key) && e.n[key].f) {
+                            var funcs = e.n[key].f;
+                            for (j = 0, jj = funcs.length; j < jj; j++) if (funcs[j] == f) {
+                                funcs.splice(j, 1);
+                                break;
+                            }
+                            !funcs.length && delete e.n[key].f;
+                        }
+                    } else {
+                        delete e.f;
+                        for (key in e.n) if (e.n[has](key) && e.n[key].f) {
+                            delete e.n[key].f;
+                        }
+                    }
+                    e = e.n;
+                }
+            }
+        };
+        /*\
+         * eve.version
+         [ property (string) ]
+         **
+         * Current version of the library.
+        \*/
+        eve.version = version;
+        eve.toString = function () {
+            return "You are running Eve " + version;
+        };
+        (typeof module != "undefined" && module.exports) ? (module.exports = eve) : (glob.eve = eve);
+    })(this);
+    
     function _extend() {
         var target = arguments[0] || {},
             sources = Array.prototype.slice.call(arguments, 1),
@@ -1145,117 +1429,6 @@
         };
     })();
     
-    var _observable = (function() {
-        // initialise variables
-        var callbackCounter = 0;
-        
-        function getHandlers(target) {
-            return target.hasOwnProperty('obsHandlers') ? 
-                    target.obsHandlers : 
-                    null;
-        } // getHandlers
-    
-        function getHandlersForName(target, eventName) {
-            var handlers = getHandlers(target);
-            if (! handlers[eventName]) {
-                handlers[eventName] = [];
-            } // if
-    
-            return handlers[eventName];
-        } // getHandlersForName
-    
-        return function(target) {
-            if (! target) { return null; }
-    
-            /* initialization code */
-    
-            // check that the target has handlers 
-            if (! getHandlers(target)) {
-                target.obsHandlers = {};
-            } // if
-    
-            var attached = target.hasOwnProperty('bind');
-            if (! attached) {
-                target.bind = function(eventName, callback) {
-                    var callbackId = "callback" + (callbackCounter++);
-                    getHandlersForName(target, eventName).unshift({
-                        fn: callback,
-                        id: callbackId
-                    });
-    
-                    return callbackId;
-                }; // bind
-                
-                target.triggerCustom = function(eventName, args) {
-                    var eventCallbacks = getHandlersForName(target, eventName),
-                        evt = {
-                            cancel: false,
-                            name: eventName,
-                            source: this
-                        },
-                        eventArgs;
-                        
-                    // if we have arguments, then extend the evt object
-                    for (var key in args) {
-                        evt[key] = args[key];
-                    } // for
-    
-                    // check that we have callbacks
-                    if (! eventCallbacks) {
-                        return null;
-                    } // if
-                    
-                    // add the global handlers
-                    eventCallbacks = eventCallbacks.concat(getHandlersForName(target, '*'));
-                
-                    // get the event arguments without the event name
-                    eventArgs = Array.prototype.slice.call(arguments, 2);
-                    
-                    // if the target has defined an event interceptor (just one allowed)
-                    // then send it a capture of the event details
-                    if (target.eventInterceptor) {
-                        target.eventInterceptor(eventName, evt, eventArgs);
-                    } // if
-    
-                    // put the event literal to the start of the event arguments
-                    eventArgs.unshift(evt);
-    
-                    for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
-                        eventCallbacks[ii].fn.apply(this, eventArgs);
-                    } // for
-                    
-                    return evt;                
-                };
-    
-                target.trigger = function(eventName) {
-                    var eventArgs = Array.prototype.slice.call(arguments, 1);
-                    eventArgs.splice(0, 0, eventName, null);
-                    
-                    return target.triggerCustom.apply(this, eventArgs);
-                }; // trigger
-    
-                target.unbind = function(eventName, callbackId) {
-                    if (typeof eventName === 'undefined') {
-                        target.obsHandlers = {};
-                    }
-                    else {
-                        var eventCallbacks = getHandlersForName(target, eventName);
-                        for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
-                            if (eventCallbacks[ii].id === callbackId) {
-                                eventCallbacks.splice(ii, 1);
-                                break;
-                            } // if
-                        } // for
-                    } // if..else
-    
-                    return target;
-                }; // unbind
-            } // if
-        
-            return target;
-        };
-    })();
-    
     var _configurable = (function() {
     
         function attach(target, settings, watchlist, key) {
@@ -1414,246 +1587,299 @@
         return typeof window != 'undefined' ? clientReq : serverReq;
     }());
     
-    /**
-    # INTERACT
-    */
+    // ┌──────────────────────────────────────────────────────────────────────────────────────┐ \\
+    // │ Eve 0.3.2 - JavaScript Events Library                                                │ \\
+    // ├──────────────────────────────────────────────────────────────────────────────────────┤ \\
+    // │ Copyright (c) 2008-2011 Dmitry Baranovskiy (http://dmitry.baranovskiy.com/)          │ \\
+    // │ Licensed under the MIT (http://www.opensource.org/licenses/mit-license.php) license. │ \\
+    // └──────────────────────────────────────────────────────────────────────────────────────┘ \\
+    
+    (function (glob) {
+        var version = "0.3.2",
+            has = "hasOwnProperty",
+            separator = /[\.\/]/,
+            wildcard = "*",
+            fun = function () {},
+            numsort = function (a, b) {
+                return a - b;
+            },
+            current_event,
+            stop,
+            events = {n: {}},
+        /*\
+         * eve
+         [ method ]
+         **
+         * Fires event with given `name`, given scope and other parameters.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated
+         - scope (object) context for the event handlers
+         - varargs (...) the rest of arguments will be sent to event handlers
+         **
+         = (object) array of returned values from the listeners
+        \*/
+            eve = function (name, scope) {
+                var e = events,
+                    oldstop = stop,
+                    args = Array.prototype.slice.call(arguments, 2),
+                    listeners = eve.listeners(name),
+                    z = 0,
+                    f = false,
+                    l,
+                    indexed = [],
+                    queue = {},
+                    out = [],
+                    errors = [];
+                current_event = name;
+                stop = 0;
+                for (var i = 0, ii = listeners.length; i < ii; i++) if ("zIndex" in listeners[i]) {
+                    indexed.push(listeners[i].zIndex);
+                    if (listeners[i].zIndex < 0) {
+                        queue[listeners[i].zIndex] = listeners[i];
+                    }
+                }
+                indexed.sort(numsort);
+                while (indexed[z] < 0) {
+                    l = queue[indexed[z++]];
+                    out.push(l.apply(scope, args));
+                    if (stop) {
+                        stop = oldstop;
+                        return out;
+                    }
+                }
+                for (i = 0; i < ii; i++) {
+                    l = listeners[i];
+                    if ("zIndex" in l) {
+                        if (l.zIndex == indexed[z]) {
+                            out.push(l.apply(scope, args));
+                            if (stop) {
+                                stop = oldstop;
+                                return out;
+                            }
+                            do {
+                                z++;
+                                l = queue[indexed[z]];
+                                l && out.push(l.apply(scope, args));
+                                if (stop) {
+                                    stop = oldstop;
+                                    return out;
+                                }
+                            } while (l)
+                        } else {
+                            queue[l.zIndex] = l;
+                        }
+                    } else {
+                        out.push(l.apply(scope, args));
+                        if (stop) {
+                            stop = oldstop;
+                            return out;
+                        }
+                    }
+                }
+                stop = oldstop;
+                return out.length ? out : null;
+            };
+        /*\
+         * eve.listeners
+         [ method ]
+         **
+         * Internal method which gives you array of all event handlers that will be triggered by the given `name`.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated
+         **
+         = (array) array of event handlers
+        \*/
+        eve.listeners = function (name) {
+            var names = name.split(separator),
+                e = events,
+                item,
+                items,
+                k,
+                i,
+                ii,
+                j,
+                jj,
+                nes,
+                es = [e],
+                out = [];
+            for (i = 0, ii = names.length; i < ii; i++) {
+                nes = [];
+                for (j = 0, jj = es.length; j < jj; j++) {
+                    e = es[j].n;
+                    items = [e[names[i]], e[wildcard]];
+                    k = 2;
+                    while (k--) {
+                        item = items[k];
+                        if (item) {
+                            nes.push(item);
+                            out = out.concat(item.f || []);
+                        }
+                    }
+                }
+                es = nes;
+            }
+            return out;
+        };
+        
+        /*\
+         * eve.on
+         [ method ]
+         **
+         * Binds given event handler with a given name. You can use wildcards “`*`” for the names:
+         | eve.on("*.under.*", f);
+         | eve("mouse.under.floor"); // triggers f
+         * Use @eve to trigger the listener.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated, with optional wildcards
+         - f (function) event handler function
+         **
+         = (function) returned function accept one number parameter that represents z-index of the handler. It is optional feature and only used when you need to ensure that some subset of handlers will be invoked in a given order, despite of the order of assignment. 
+         > Example:
+         | eve.on("mouse", eat)(2);
+         | eve.on("mouse", scream);
+         | eve.on("mouse", catch)(1);
+         * This will ensure that `catch` function will be called before `eat`.
+         * If you want to put you hadler before not indexed handlers specify negative value.
+         * Note: I assume most of the time you don’t need to worry about z-index, but it’s nice to have this feature “just in case”.
+        \*/
+        eve.on = function (name, f) {
+            var names = name.split(separator),
+                e = events;
+            for (var i = 0, ii = names.length; i < ii; i++) {
+                e = e.n;
+                !e[names[i]] && (e[names[i]] = {n: {}});
+                e = e[names[i]];
+            }
+            e.f = e.f || [];
+            for (i = 0, ii = e.f.length; i < ii; i++) if (e.f[i] == f) {
+                return fun;
+            }
+            e.f.push(f);
+            return function (zIndex) {
+                if (+zIndex == +zIndex) {
+                    f.zIndex = +zIndex;
+                }
+            };
+        };
+        /*\
+         * eve.stop
+         [ method ]
+         **
+         * Is used inside event handler to stop event
+        \*/
+        eve.stop = function () {
+            stop = 1;
+        };
+        /*\
+         * eve.nt
+         [ method ]
+         **
+         * Could be used inside event handler to figure out actual name of the event.
+         **
+         > Arguments
+         **
+         - subname (string) #optional subname of the event
+         **
+         = (string) name of the event, if `subname` is not specified
+         * or
+         = (boolean) `true`, if current event’s name contains `subname`
+        \*/
+        eve.nt = function (subname) {
+            if (subname) {
+                return new RegExp("(?:\\.|\\/|^)" + subname + "(?:\\.|\\/|$)").test(current_event);
+            }
+            return current_event;
+        };
+        /*\
+         * eve.unbind
+         [ method ]
+         **
+         * Removes given function from the list of event listeners assigned to given name.
+         **
+         > Arguments
+         **
+         - name (string) name of the event, dot (`.`) or slash (`/`) separated, with optional wildcards
+         - f (function) event handler function
+        \*/
+        eve.unbind = function (name, f) {
+            var names = name.split(separator),
+                e,
+                key,
+                splice,
+                cur = [events];
+            for (var i = 0, ii = names.length; i < ii; i++) {
+                for (var j = 0; j < cur.length; j += splice.length - 2) {
+                    splice = [j, 1];
+                    e = cur[j].n;
+                    if (names[i] != wildcard) {
+                        if (e[names[i]]) {
+                            splice.push(e[names[i]]);
+                        }
+                    } else {
+                        for (key in e) if (e[has](key)) {
+                            splice.push(e[key]);
+                        }
+                    }
+                    cur.splice.apply(cur, splice);
+                }
+            }
+            for (i = 0, ii = cur.length; i < ii; i++) {
+                e = cur[i];
+                while (e.n) {
+                    if (f) {
+                        if (e.f) {
+                            for (j = 0, jj = e.f.length; j < jj; j++) if (e.f[j] == f) {
+                                e.f.splice(j, 1);
+                                break;
+                            }
+                            !e.f.length && delete e.f;
+                        }
+                        for (key in e.n) if (e.n[has](key) && e.n[key].f) {
+                            var funcs = e.n[key].f;
+                            for (j = 0, jj = funcs.length; j < jj; j++) if (funcs[j] == f) {
+                                funcs.splice(j, 1);
+                                break;
+                            }
+                            !funcs.length && delete e.n[key].f;
+                        }
+                    } else {
+                        delete e.f;
+                        for (key in e.n) if (e.n[has](key) && e.n[key].f) {
+                            delete e.n[key].f;
+                        }
+                    }
+                    e = e.n;
+                }
+            }
+        };
+        /*\
+         * eve.version
+         [ property (string) ]
+         **
+         * Current version of the library.
+        \*/
+        eve.version = version;
+        eve.toString = function () {
+            return "You are running Eve " + version;
+        };
+        (typeof module != "undefined" && module.exports) ? (module.exports = eve) : (glob.eve = eve);
+    })(this);
+    
+    
+    // Interact 0.3.0 - Mouse and Touch Handling
+    // Copyright (c) 2010-2011 Damon Oehlman (damon.oehlman -at- sidelab.com)
+    // Licensed under the MIT (http://www.opensource.org/licenses/mit-license.php) license
     INTERACT = (function() {
         // initialise variables
-        var interactors = [];
-        
-        function _extend() {
-            var target = arguments[0] || {},
-                sources = Array.prototype.slice.call(arguments, 1),
-                length = sources.length,
-                source,
-                ii;
-        
-            for (ii = 0; ii < length; ii++) {
-                if ((source = sources[ii]) !== null) {
-                    for (var name in source) {
-                        var copy = source[name];
-        
-                        if (target === copy) {
-                            continue;
-                        } // if
-        
-                        if (copy !== undefined) {
-                            target[name] = copy;
-                        } // if
-                    } // for
-                } // if
-            } // for
-        
-            return target;
-        } // _extend
-    
-        function _log(msg, level) {
-            if (typeof console !== 'undefined') {
-                console[level || 'log'](msg);
-            } // if
-        } // _log
-        
-        function _logError(error) {
-            if (typeof console !== 'undefined') {
-                console.error(error);
-                console.log(error.stack);
-            } // if
-        } // _logError
-    
-        var _observable = (function() {
-            // initialise variables
-            var callbackCounter = 0;
-            
-            function getHandlers(target) {
-                return target.hasOwnProperty('obsHandlers') ? 
-                        target.obsHandlers : 
-                        null;
-            } // getHandlers
-        
-            function getHandlersForName(target, eventName) {
-                var handlers = getHandlers(target);
-                if (! handlers[eventName]) {
-                    handlers[eventName] = [];
-                } // if
-        
-                return handlers[eventName];
-            } // getHandlersForName
-        
-            return function(target) {
-                if (! target) { return null; }
-        
-                /* initialization code */
-        
-                // check that the target has handlers 
-                if (! getHandlers(target)) {
-                    target.obsHandlers = {};
-                } // if
-        
-                var attached = target.hasOwnProperty('bind');
-                if (! attached) {
-                    target.bind = function(eventName, callback) {
-                        var callbackId = "callback" + (callbackCounter++);
-                        getHandlersForName(target, eventName).unshift({
-                            fn: callback,
-                            id: callbackId
-                        });
-        
-                        return callbackId;
-                    }; // bind
-                    
-                    target.triggerCustom = function(eventName, args) {
-                        var eventCallbacks = getHandlersForName(target, eventName),
-                            evt = {
-                                cancel: false,
-                                name: eventName,
-                                source: this
-                            },
-                            eventArgs;
-                            
-                        // if we have arguments, then extend the evt object
-                        for (var key in args) {
-                            evt[key] = args[key];
-                        } // for
-        
-                        // check that we have callbacks
-                        if (! eventCallbacks) {
-                            return null;
-                        } // if
-                        
-                        // add the global handlers
-                        eventCallbacks = eventCallbacks.concat(getHandlersForName(target, '*'));
-                    
-                        // get the event arguments without the event name
-                        eventArgs = Array.prototype.slice.call(arguments, 2);
-                        
-                        // if the target has defined an event interceptor (just one allowed)
-                        // then send it a capture of the event details
-                        if (target.eventInterceptor) {
-                            target.eventInterceptor(eventName, evt, eventArgs);
-                        } // if
-        
-                        // put the event literal to the start of the event arguments
-                        eventArgs.unshift(evt);
-        
-                        for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
-                            eventCallbacks[ii].fn.apply(this, eventArgs);
-                        } // for
-                        
-                        return evt;                
-                    };
-        
-                    target.trigger = function(eventName) {
-                        var eventArgs = Array.prototype.slice.call(arguments, 1);
-                        eventArgs.splice(0, 0, eventName, null);
-                        
-                        return target.triggerCustom.apply(this, eventArgs);
-                    }; // trigger
-        
-                    target.unbind = function(eventName, callbackId) {
-                        if (typeof eventName === 'undefined') {
-                            target.obsHandlers = {};
-                        }
-                        else {
-                            var eventCallbacks = getHandlersForName(target, eventName);
-                            for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
-                                if (eventCallbacks[ii].id === callbackId) {
-                                    eventCallbacks.splice(ii, 1);
-                                    break;
-                                } // if
-                            } // for
-                        } // if..else
-        
-                        return target;
-                    }; // unbind
-                } // if
-            
-                return target;
-            };
-        })();
-    
-        
-        var EventMonitor = function(target, handlers, params) {
-            params = _extend({
-                binder: null,
-                unbinder: null,
-                observable: null
-            }, params);
-            
-            // initialise constants
-            var MAXMOVE_TAP = 20, // pixels
-                INERTIA_DURATION = 500, // ms
-                INERTIA_MAXDIST = 300, // pixels
-                INERTIA_TIMEOUT = 50, // ms
-                INERTIA_IDLE_DISTANCE = 15; // pixels
-            
-            // initialise variables
-            var observable = params.observable,
-                handlerInstances = [],
-                totalDeltaX,
-                totalDeltaY;
-            
-            // TODO: check that the binder, unbinder and observable have been supplied
-            
-            /* internals */
-        
-            function handlePointerMove(evt, absXY, relXY, deltaXY) {
-                // update the total delta
-                totalDeltaX += deltaXY.x || 0;
-                totalDeltaY += deltaXY.y || 0;
-            } // handlePanMove
-            
-            function handlePointerDown(evt, absXY, relXY) {
-                totalDeltaX = 0;
-                totalDeltaY = 0;
-            } // handlePointerDown
-            
-            function handlePointerUp(evt, absXY, relXY) {
-                var moveDelta = Math.max(Math.abs(totalDeltaX), Math.abs(totalDeltaY));
-                
-                // if the total delta is within tolerances then trigger a tap also
-                if (moveDelta <= MAXMOVE_TAP) {
-                    observable.triggerCustom('tap', evt, absXY, relXY);
-                } // if
-            } // handlePointerUP
-            
-            /* exports */
-            
-            function bind() {
-                return observable.bind.apply(null, arguments);
-            } // bind
-            
-            function unbind() {
-                // unbind all observable handlers
-                observable.unbind();
-                
-                // unbind handler instances
-                for (ii = 0; ii < handlerInstances.length; ii++) {
-                    handlerInstances[ii].unbind();
-                } // for
-                
-                return self;
-            } // unbind
-            
-            /* define the object */
-            
-            var self = {
-                bind: bind,
-                unbind: unbind
-            };
-            
-            // iterate through the handlers and attach
-            for (var ii = 0; ii < handlers.length; ii++) {
-                handlerInstances.push(handlers[ii](target, observable, params));
-            } // for
-            
-            // bind panning
-            observable.bind('pointerDown', handlePointerDown);
-            observable.bind('pointerMove', handlePointerMove);
-            observable.bind('pointerUp', handlePointerUp);
-            
-            return self;
-        }; 
-    
+        var interactors = [],
+            reLastChunk = /.*\.(.*)$/,
+            lastXY = {};
         
         /* internal functions */
         
@@ -1717,42 +1943,43 @@
         /* exports */
         
         function register(typeName, opts) {
-            interactors.push(_extend({
-                handler: null,
-                checks: {},
-                type: typeName
-            }, opts));
+            // initialise options
+            opts = opts || {};
+            opts.checks = opts.checks || {};
+            opts.type = opts.type || typeName;
+            
+            interactors.push(opts);
         } // register
         
         /**
         ### watch(target, opts, caps)
         */
         function watch(target, opts, caps) {
-            // initialise the options
-            opts = _extend({
-                bindTarget: null,
-                observable: null,
-                isIE: typeof window.attachEvent != 'undefined',
-                types: null
-            }, opts);
+            var handlers;
             
-            // initialise the capabilities
-            capabilities = _extend({
-                touch: 'ontouchstart' in window
-            }, caps);
-            
-            // check if we need to supply an observable object
-            if (! opts.observable) {
-                opts.observable = _observable({});
-                globalOpts = opts;
+            // if the target is a string, then look for the element
+            if (typeof target == 'string') {
+                target = document.getElementById(target);
             } // if
+            
+            // initialise options
+            opts = opts || {};
+            opts.isIE = typeof window.attachEvent != 'undefined';
+            
+            // init caps
+            caps = caps || {};
+            caps.touch = caps.touch || 'ontouchstart' in window;
             
             // initialise the binder and unbinder
             opts.binder = (opts.isIE ? genIEBinder : genBinder)(opts.bindTarget || document);
             opts.unbinder = (opts.isIE ? genIEBinder : genUnbinder)(opts.bindTarget || document);
             
-            // return the event monitor
-            return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
+            // initialise the handlers
+            handlers = getHandlers(opts.types, caps);
+            
+            for (var ii = 0; ii < handlers.length; ii++) {
+                handlers[ii].call(target, target, opts);
+            } // for
         } // watch
         
         /* common pointer (mouse, touch, etc) functions */
@@ -1775,13 +2002,6 @@
                 top: calcTop
             };
         } // getOffset
-        
-        function genEventProps(source, evt) {
-            return {
-                source: source,
-                target: evt.target ? evt.target : evt.srcElement
-            };
-        } // genEventProps
         
         function matchTarget(evt, targetElement) {
             var targ = evt.target ? evt.target : evt.srcElement,
@@ -1818,9 +2038,9 @@
             } // if
         } // preventDefault
     
-        var MouseHandler = function(targetElement, observable, opts) {
-            opts = _extend({
-            }, opts);
+        var MouseHandler = function(targetElement, opts) {
+            // initialise opts
+            opts = opts || {};
             
             // initialise constants
             var WHEEL_DELTA_STEP = 120,
@@ -1833,8 +2053,12 @@
                 start,
                 currentX,
                 currentY,
-                lastX,
-                lastY;
+                evtPointer = 'interact.pointer',
+                evtTargetId = targetElement && targetElement.id ? '.' + targetElement.id : '',
+                evtPointerDown = evtPointer + '.down' + evtTargetId,
+                evtPointerMove = evtPointer + '.move' + evtTargetId,
+                evtPointerUp = evtPointer + '.up' + evtTargetId,
+                evtZoomWheel = 'interact.zoom.wheel' + evtTargetId;
             
             /* internal functions */
             
@@ -1863,9 +2087,10 @@
                 if (matchTarget(evt, targetElement)) {
                     var clickXY = getPagePos(evt);
                     
-                    observable.triggerCustom(
-                        'doubleTap', 
-                        genEventProps('mouse', evt),
+                    eve(
+                        'interact.doubleTap' + evtTargetId,
+                        targetElement,
+                        evt,
                         clickXY, 
                         pointerOffset(clickXY, getOffset(targetElement))
                     );
@@ -1883,14 +2108,13 @@
                         targetElement.style.cursor = 'move';
                         preventDefault(evt, true);
                         
-                        lastX = pagePos.x; 
-                        lastY = pagePos.y;
-                        start = point(lastX, lastY);
+                        start = point(pagePos.x, pagePos.y);
                         
                         // trigger the pointer down event
-                        observable.triggerCustom(
-                            'pointerDown', 
-                            genEventProps('mouse', evt),
+                        eve(
+                            evtPointerDown, 
+                            targetElement,
+                            evt,
                             start, 
                             pointerOffset(start, getOffset(targetElement))
                         );
@@ -1906,7 +2130,7 @@
                 currentY = pagePos.y;
                 
                 if (matchTarget(evt, targetElement)) {
-                    triggerCurrent(evt, buttonDown ? 'pointerMove' : 'pointerHover');
+                    triggerCurrent(evt, 'interact.pointer.'+ (buttonDown ? 'move' : 'hover'));
                 } // if
             } // mouseMove
         
@@ -1917,7 +2141,7 @@
                     // if the button was released on this element, then trigger the event
                     if (matchTarget(evt, targetElement)) {
                         targetElement.style.cursor = 'default';
-                        triggerCurrent(evt, 'pointerUp');
+                        triggerCurrent(evt, 'interact.pointer.up');
                     } // if
                 } // if
             } // mouseUp
@@ -1944,13 +2168,13 @@
                     if (deltaY) {
                         var current = point(currentX, currentY);
                         
-                        observable.triggerCustom(
-                            'zoom', 
-                            genEventProps('mouse', evt),
+                        eve(
+                            evtZoomWheel,
+                            targetElement,
+                            evt,
                             current, 
                             pointerOffset(current, getOffset(targetElement)),
-                            deltaY / WHEEL_DELTA_LEVEL,
-                            'wheel'
+                            deltaY / WHEEL_DELTA_LEVEL
                         );
                         
                         preventDefault(evt); 
@@ -1972,24 +2196,16 @@
             function triggerCurrent(evt, eventName, overrideX, overrideY, updateLast) {
                 var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
                     evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
-                    deltaX = evtX - lastX,
-                    deltaY = evtY - lastY,
                     current = point(evtX, evtY);
                     
                 // trigger the event
-                observable.triggerCustom(
-                    eventName, 
-                    genEventProps('mouse', evt),
+                eve(
+                    eventName + evtTargetId,
+                    targetElement,
+                    evt,
                     current,
-                    pointerOffset(current, getOffset(targetElement)),
-                    point(deltaX, deltaY)
+                    pointerOffset(current, getOffset(targetElement))
                 );
-                
-                // if we should update the last x and y, then do that now
-                if (typeof updateLast == 'undefined' || updateLast) {
-                    lastX = evtX;
-                    lastY = evtY;
-                } // if
             } // triggerCurrent
         
             /* exports */
@@ -2032,11 +2248,17 @@
             }
         });
     
-        var TouchHandler = function(targetElement, observable, opts) {
-            opts = _extend({
-                detailed: false,
-                inertia: false
-            }, opts);
+        /**
+        # TouchHandler(targetElement, opts)
+        
+        ## Valid Options
+        
+        - detailed: boolean (default = false)
+        - inertia: boolean (default = false)
+        */
+        var TouchHandler = function(targetElement, opts) {
+            // initialise opts
+            opts = opts || {};
             
             // initialise constants
             var DEFAULT_INERTIA_MAX = 500,
@@ -2065,7 +2287,16 @@
                 startDistance,
                 touchesLast,
                 detailedEvents = opts.detailed,
-                scaling = 1;
+                scaling = 1,
+                evtPointer = 'interact.pointer',
+                evtTargetId = targetElement && targetElement.id ? '.' + targetElement.id : '',
+                evtPointerDown = evtPointer + '.down' + evtTargetId,
+                evtPointerMultiDown = evtPointer + '.multi.down' + evtTargetId,
+                evtPointerMove = evtPointer + '.move' + evtTargetId,
+                evtPointerMultiMove = evtPointer + '.multi.move' + evtTargetId,
+                evtPointerUp = evtPointer + '.up' + evtTargetId,
+                evtPointerMultiUp = evtPointer + '.multi.up' + evtTargetId,
+                evtZoomPinch = 'interact.zoom.pinch' + evtTargetId;
         
             /* internal functions */
             
@@ -2168,27 +2399,18 @@
         
                     // initialise variables
                     var changedTouches = getTouchData(evt, 'changedTouches'),
-                        relTouches = copyTouches(changedTouches, offset.left, offset.top);
+                        relTouches = copyTouches(changedTouches, offset.left, offset.top),
+                        evtArgs = [targetElement, evt, changedTouches, relTouches];
                     
                     if (! touchesStart) {
                         // reset the touch mode to unknown
                         touchMode = TOUCH_MODE_TAP;
-        
-                        // trigger the pointer down event
-                        observable.triggerCustom(
-                            'pointerDown', 
-                            genEventProps('touch', evt),
-                            changedTouches, 
-                            relTouches);
+                        eve.apply(eve, [evtPointerDown].concat(evtArgs));
                     } // if
                     
                     // if we are providing detailed events, then trigger the pointer down multi
                     if (detailedEvents) {
-                        observable.triggerCustom(
-                            'pointerDownMulti',
-                            genEventProps('touch', evt),
-                            changedTouches,
-                            relTouches);
+                        eve.apply(eve, [evtPointerMultiDown].concat(evtArgs));
                     } // if
                     
                     touchesStart = getTouchData(evt);
@@ -2207,6 +2429,8 @@
             } // handleTouchStart
             
             function handleTouchMove(evt) {
+                var cancelTap, evtArgs;
+                
                 if (matchTarget(evt, targetElement)) {
                     // prevent the default action
                     preventDefault(evt);
@@ -2216,9 +2440,9 @@
                     
                     // if the touch mode is currently tap, then check the distance from the start touch
                     if (touchMode == TOUCH_MODE_TAP) {
-                        var cancelTap = 
-                                Math.abs(touchesStart.x - touchesCurrent.x) > MIN_MOVEDIST || 
-                                Math.abs(touchesStart.y - touchesCurrent.y) > MIN_MOVEDIST;
+                        cancelTap = 
+                            Math.abs(touchesStart.x - touchesCurrent.x) > MIN_MOVEDIST || 
+                            Math.abs(touchesStart.y - touchesCurrent.y) > MIN_MOVEDIST;
         
                         // update the touch mode based on the result
                         touchMode = cancelTap ? TOUCH_MODE_UNKNOWN : TOUCH_MODE_TAP;
@@ -2253,43 +2477,33 @@
                                         scaleChange = currentScaling - scaling;
                                         
                                     // trigger the zoom event
-                                    observable.triggerCustom(
-                                        'zoom', 
-                                        genEventProps('touch', evt),
-                                        current, 
-                                        pointerOffset(current, offset),
-                                        scaleChange,
-                                        'pinch'
-                                    );
+                                    eve(evtZoomPinch, targetElement, evt, current, 
+                                        pointerOffset(current, offset), scaleChange);
                                     
                                     // update the scaling
                                     scaling = currentScaling;
                                 } // if..else
                             } // if..else
                         } // if
+        
+                        // initialise the event args
+                        evtArgs = [
+                            targetElement,
+                            evt,
+                            touchesCurrent,
+                            copyTouches(touchesCurrent, offset.left, offset.top),
+                            point(touchesCurrent.x - touchesLast.x, touchesCurrent.y - touchesLast.y)
+                        ];
                         
                         // if the touch mode is move, then trigger a pointer move on the first touch
                         if (touchMode == TOUCH_MODE_MOVE) {
                             // trigger the pointer move event
-                            observable.triggerCustom(
-                                'pointerMove',
-                                genEventProps('touch', evt),
-                                touchesCurrent,
-                                copyTouches(touchesCurrent, offset.left, offset.top),
-                                point(
-                                    touchesCurrent.x - touchesLast.x, 
-                                    touchesCurrent.y - touchesLast.y)
-                            );
+                            eve.apply(eve, [evtPointerMove].concat(evtArgs));
                         } // if
                         
                         // fire a touch multi event for custom event handling
                         if (detailedEvents) {
-                            observable.triggerCustom(
-                                'pointerMoveMulti', 
-                                genEventProps('touch', evt),
-                                touchesCurrent, 
-                                copyTouches(touchesCurrent, offset.left, offset.top)
-                            );
+                            eve.apply(eve, [evePointerMultiMove].concat(evtArgs));
                         } // if
                     } // if
                     
@@ -2300,33 +2514,21 @@
             function handleTouchEnd(evt) {
                 if (matchTarget(evt, targetElement)) {
                     var changedTouches = getTouchData(evt, 'changedTouches'),
-                        offsetTouches = copyTouches(changedTouches, offset.left, offset.top);
+                        offsetTouches = copyTouches(changedTouches, offset.left, offset.top),
+                        evtArgs = [targetElement, evt, changedTouches, offsetTouches];
                     
                     // get the current touches
                     touchesCurrent = getTouchData(evt);
                     
                     // if this is the last touch to be removed do some extra checks
                     if (! touchesCurrent) {
-                        // trigger the pointer up
-                        observable.triggerCustom(
-                            'pointerUp',
-                            genEventProps('touch', evt),
-                            changedTouches,
-                            offsetTouches
-                        );
-        
+                        eve.apply(eve, [evtPointerUp].concat(evtArgs));
                         touchesStart = null;
                     } // if
                     
                     // if we are monitoring detailed events, then trigger up multi
                     if (detailedEvents) {
-                        // trigger the pointer up
-                        observable.triggerCustom(
-                            'pointerUpMulti',
-                            genEventProps('touch', evt),
-                            changedTouches,
-                            offsetTouches
-                        );
+                        eve.apply(evt, [evtPointerMultiUp].concat(evtArgs));
                     } // if..else
                 } // if
             } // handleTouchEnd
@@ -2366,6 +2568,48 @@
         });
     
         
+        // add some helpful wrappers
+        eve.on('interact.pointer.down', function(evt, absXY, relXY) {
+            var ctrlName = eve.nt().replace(reLastChunk, '$1');
+            
+            if (ctrlName) {
+                lastXY[ctrlName] = {
+                    x: relXY.x,
+                    y: relXY.y
+                };
+            } // if
+            
+            // save the down target
+            downTarget = this;
+        });    
+        
+        // handle pointer move events
+        eve.on('interact.pointer.move', function(evt, absXY, relXY) {
+            var ctrlName = eve.nt().replace(reLastChunk, '$1');
+            
+            if (ctrlName && lastXY[ctrlName]) {
+                var deltaX = relXY.x - lastXY[ctrlName].x,
+                    deltaY = relXY.y - lastXY[ctrlName].y;
+    
+                // trigger the pan event
+                eve('interact.pan.' + ctrlName, this, evt, deltaX, deltaY, absXY, relXY);
+    
+                // update the last xy
+                lastXY[ctrlName] = {
+                    x: relXY.x,
+                    y: relXY.y
+                };
+            } // if
+        });
+        
+        eve.on('interact.pointer.up', function(evt, absXY, relXY) {
+            var ctrlName = eve.nt().replace(reLastChunk, '$1');
+            
+            if (this === downTarget) {
+                eve('interact.tap' + (ctrlName ? '.' + ctrlName : ''), this, evt, absXY, relXY);
+            } // if
+        });
+        
         return {
             register: register,
             watch: watch
@@ -2375,7 +2619,7 @@
     
     
     // define T5
-    var T5 = this.T5 = _observable({});
+    var T5 = this.T5 = {};
     
     var Registry = (function() {
         /* internals */
@@ -3273,8 +3517,7 @@
                 type: hitType,
                 x: transformedXY.x,
                 y: transformedXY.y,
-                gridX: scaledXY.x | 0,
-                gridY: scaledXY.y | 0,
+                gridXY: scaledXY || new XY(),
                 elements: [],
                 
                 // also store the original event data
@@ -3311,7 +3554,7 @@
                 elements ? elements : hitData.elements, 
                 hitData.absXY,
                 hitData.relXY,
-                new GeoXY(hitData.gridX, hitData.gridY)
+                hitData.gridXY
             );                
         } // triggerEvent
         
@@ -3752,7 +3995,7 @@
             }
         };
         
-        return _observable(_this);
+        return _this;
     };
     
     /**
@@ -3890,7 +4133,7 @@
             } // if
         } // handleDetach
         
-        function handlePredraw(evt, layers, viewport, tickcount, hits) {
+        function handlePredraw(layers, viewport, tickcount, hits) {
             var ii;
                 
             // if we already have a context, then restore
@@ -3922,10 +4165,7 @@
             } // if
         } // handlePredraw
         
-        function handleResize() {
-        } // handleResize
-        
-        function handleStyleDefined(evt, styleId, styleData) {
+        function handleStyleDefined(styleId, styleData) {
             var ii, data;
             
             styleFns[styleId] = function(context) {
@@ -3956,11 +4196,11 @@
         
         function loadStyles() {
             Style.each(function(id, data) {
-                handleStyleDefined(null, id, data);
+                handleStyleDefined(id, data);
             });
             
             // capture style defined events so we know about new styles
-            T5.bind('styleDefined', handleStyleDefined);
+            eve.on('t5.style.*', handleStyleDefined);
         } // loadStyles
         
         function updateClearRect(x, y, w, h, full) {
@@ -4239,9 +4479,8 @@
             loadStyles();
     
             // handle detaching
-            _this.bind('predraw', handlePredraw);
-            _this.bind('detach', handleDetach);
-            _this.bind('resize', handleResize);        
+            eve.on('t5.view.predraw.' + view.id, handlePredraw);
+            eve.on('t5.view.detach.' + view.id, handleDetach);
         } // if
         
         return _this;
@@ -4287,7 +4526,7 @@
             imageDiv = null;
         } // handleDetach
         
-        function handleDrawComplete(evt, layers, viewport, tickcount, hits) {
+        function handleDrawComplete(targetView, layers, viewport, tickcount, hits) {
             // remove old tiles
             removeOldObjects();
         } // handlePredraw
@@ -4307,7 +4546,7 @@
             imageDiv.appendChild(image);
         } // handleTileLoad
         
-        function handleReset(evt) {
+        function handleReset() {
             currentTiles = {};
             
             // remove all the children of the image div (just to be sure)
@@ -4317,7 +4556,7 @@
         } // handleReset
         
         function removeOldObjects() {
-            var elements = [].concat(imageDiv.childNodes),
+            var elements = imageDiv.childNodes,
                 ii, tileId;
     
             // iterate through the elements and if the image is not a current tile, then remove it
@@ -4383,9 +4622,9 @@
             drawTiles: drawTiles
         });
         
-        _this.bind('drawComplete', handleDrawComplete);
-        _this.bind('detach', handleDetach);
-        view.bind('reset', handleReset);
+        eve.on('t5.view.rendered.' + view.id, handleDrawComplete);
+        eve.on('t5.view.renderer.detach.' + view.id, handleDetach);
+        eve.on('t5.view.reset.' + view.id, handleReset);
         
         return _this;
     });
@@ -4430,7 +4669,7 @@
         */
         function define(p1, p2) {
             if (_is(p1, typeString)) {
-                T5.trigger('styleDefined', p1, styles[p1] = p2);
+                eve('t5.style.' + p1, p1, styles[p1] = p2);
                 
                 return p1;
             }
@@ -4494,6 +4733,8 @@
         };
     })();
     
+    var viewCounter = 0;
+    
     /**
     # T5.View
     */
@@ -4505,6 +4746,7 @@
             copyright: '',
             drawOnScale: true,
             padding: 128, // other values 'auto'
+            id: 'view_' + viewCounter++,
             inertia: true,
             refreshDistance: 128,
             drawOnMove: false,
@@ -4626,9 +4868,6 @@
             // clear the view tap timeout
             clearTimeout(viewTapTimeout);
     
-            // trigger the double tap event
-            _this.trigger('doubleTap', absXY, relXY, projXY);
-                
             if (params.scalable) {
                 var center = _this.center();
                 
@@ -4644,6 +4883,13 @@
             } // if
         } // handleDoubleTap
         
+        function handlePan(evt, deltaX, deltaY) {
+            if (! dragObject) {
+                dx += deltaX;
+                dy += deltaY;
+            } // if
+        } // handlePan
+        
         function handlePointerDown(evt, absXY, relXY) {
             // reset the hover offset and the drag element
             dragObject = null;
@@ -4651,9 +4897,6 @@
             
             // initialise the hit data
             initHitData('down', absXY, relXY);
-            
-            // bubble the event up
-            _this.trigger('pointerDown', absXY, relXY);
         } // handlePointerDown
         
         function handlePointerHover(evt, absXY, relXY) {
@@ -4661,28 +4904,17 @@
             initHitData('hover', absXY, relXY);
         } // handlePointerHover
         
-        function handlePointerMove(evt, absXY, relXY, deltaXY) {
+        function handlePointerMove(evt, absXY, relXY) {
             // drag the selected if we 
             dragSelected(absXY, relXY, false);
-            
-            if (! dragObject) {
-                dx += deltaXY.x;
-                dy += deltaXY.y;
-            } // if
-            
-            // bubble the event up
-            _this.trigger('pointerMove', absXY, relXY, deltaXY);
         } // handlePointerMove
         
         function handlePointerUp(evt, absXY, relXY) {
             dragSelected(absXY, relXY, true);
             pointerDown = false;
-            
-            // bubble the event up
-            _this.trigger('pointerUp', absXY, relXY);
         } // handlePointerUp
         
-        function handleResize(evt) {
+        function handleResize() {
             clearTimeout(resizeCanvasTimeout);
             resizeCanvasTimeout = setTimeout(function() {
                 if (outer) {
@@ -4703,13 +4935,13 @@
             }, 250);
         } // handleResize
         
-        function handlePointerTap(evt, absXY, relXY) {
+        function handlePointerTap(absXY, relXY) {
             // initialise the hit data
             initHitData('tap', absXY, relXY);
             
             // trigger a tap in 20ms unless an object has been tapped
             viewTapTimeout = setTimeout(function() {
-                _this.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+                eve('t5.tap.' + _this.id, _this, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
             }, 20);
         } // handlePointerTap
         
@@ -4721,33 +4953,36 @@
             } // if
     
             if (DOM && renderer) {
+                var targetId = (renderer.interactTarget || outer).id || '*';
+                
                 // recreate the event monitor
                 eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
     
                 // if this view is scalable, attach zooming event handlers
                 if (params.scalable) {
-                    eventMonitor.bind('zoom', handleZoom);
-                    eventMonitor.bind('doubleTap', handleDoubleTap);
+                    eve.on('interact.zoom.' + targetId, handleZoom);
+                    eve.on('interact.doubletap.' + targetId, handleDoubleTap);
                 } // if
                 
                 // handle pointer down tests
-                eventMonitor.bind('pointerDown', handlePointerDown);
-                eventMonitor.bind('pointerMove', handlePointerMove);
-                eventMonitor.bind('pointerUp', handlePointerUp);
+                eve.on('interact.pointer.down.' + targetId, handlePointerDown);
+                eve.on('interact.pointer.move.' + targetId, handlePointerMove);
+                eve.on('interact.pointer.up.' + targetId, handlePointerUp);
+                eve.on('interact.pan.' + targetId, handlePan);
     
                 if (params.captureHover) {
-                    eventMonitor.bind('pointerHover', handlePointerHover);
+                    eve.on('interact.pointer.hover.' + targetId, handlePointerHover);
                 } // if
     
                 // handle tap events
-                eventMonitor.bind('tap', handlePointerTap);
+                eve.on('interact.tap.' + targetId, handlePointerTap);
             } // if
         } // captureInteractionEvents
         
         function changeRenderer(value) {
             // if we have a renderer, then detach it
             if (renderer) {
-                renderer.trigger('detach');
+                eve('t5.view.renderer.detach.' + _this.id, _this, renderer);
                 renderer = null;
             } // if
             
@@ -4762,8 +4997,8 @@
             captureInteractionEvents();
     
             // reset the view (renderers will pick this up)
-            _this.trigger('changeRenderer', renderer);
-            _this.trigger('reset');
+            eve('t5.view.renderer.change.' + _this.id, _this, renderer);
+            eve('t5.view.reset.' + _this.id, _this);
     
             // refresh the display
             refresh();
@@ -4820,7 +5055,7 @@
             
             // if we have existing controls, then tell them to detach
             for (ii = 0; ii < controls.length; ii++) {
-                controls[ii].trigger('detach');
+                eve('t5.view.control.detach.' + _this.id, _this, controls[ii]);
             } // for
             
             // clear the controls array
@@ -4975,8 +5210,8 @@
     
             // if we have elements
             if (elements.length > 0) {
-                var downX = hitSample.gridX,
-                    downY = hitSample.gridY;
+                var downX = hitSample.gridXY.x,
+                    downY = hitSample.gridXY.y;
                 
                 // iterate through objects from last to first (first get drawn last so sit underneath)
                 for (ii = elements.length; pointerDown && ii--; ) {
@@ -5022,7 +5257,7 @@
             // update the panning flag
             scaleChanged = scaleFactor !== lastScaleFactor;
             if (scaleChanged) {
-                _this.trigger('scale');
+                eve('t5.view.scale.' + _this.id, _this);
             } // if
             
             if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
@@ -5048,7 +5283,7 @@
     
             // trigger the enter frame event
             // TODO: investigate whether this can be removed...
-            // _this.trigger('enterFrame', tickCount, frameData);
+            // _this.tigger('enterFrame', tickCount, frameData);
             
             // if we a due for a redraw then do on
             if (renderer && frameData.draw) {
@@ -5067,7 +5302,7 @@
                 panY += dy;
                 
                 if (dx || dy) {
-                    _this.trigger('pan');
+                    eve('t5.view.pan.' + _this.id, _this, dx, dy);
                 } // if
                 
                 // if transforms are supported, then scale and rotate as approprate
@@ -5125,7 +5360,7 @@
                     // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
     
                     // trigger the predraw event
-                    renderer.trigger('predraw', layers, vp, tickCount, hits);
+                    eve('t5.view.predraw.' + _this.id, _this, layers, vp, tickCount, hits);
     
                     // reset the view changes count
                     viewChanges = 0;
@@ -5159,10 +5394,10 @@
     
                     // get the renderer to render the view
                     // NB: some renderers will do absolutely nothing here...
-                    renderer.trigger('render', vp);
+                    eve('t5.view.render.' + _this.id, _this, vp);
     
                     // trigger the draw complete event
-                    _this.trigger('drawComplete', vp, tickCount);
+                    eve('t5.view.rendered.' + _this.id, _this, vp, tickCount);
     
                     // reset the view pan position
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
@@ -5204,7 +5439,7 @@
     
                 // check for a scale factor change
                 if (lastScaleFactor !== scaleFactor) {
-                    _this.trigger('scaleChanged', scaleFactor);
+                    eve('t5.view.scalechange.' + _this.id, _this, scaleFactor);
                     lastScaleFactor = scaleFactor;
                 };
             } // if
@@ -5240,7 +5475,7 @@
                     // if the layer is visible then check for hits
                     if (layers[ii].visible) {
                         hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                            layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _this) :
+                            layers[ii].hitGuess(hitSample.gridXY.x, hitSample.gridXY.y, _this) :
                             false);
                     } // if
                 } // for
@@ -5273,7 +5508,7 @@
         function addCopy(text) {
             // update the copyright and trigger the event
             copyright = copyright ? copyright + ' ' + text : text;
-            _this.trigger('copyright', copyright);
+            eve('t5.view.copyright.' + _this.id, _this, copyright);
         } // addCopy
         
         /**
@@ -5335,7 +5570,7 @@
             
             // if we have a renderer, then detach 
             if (renderer) {
-                renderer.trigger('detach');
+                eve('t5.view.renderer.detach.' + _this.id, _this, renderer);
             } // if
             
             if (eventMonitor) {
@@ -5487,11 +5722,11 @@
                 layerCount = layers.length;                
     
                 // trigger a refresh on the layer
-                _this.trigger('resync');
+                eve('t5.view.resync.' + _this.id, _this);
                 refresh();
     
                 // trigger a layer changed event
-                _this.trigger('layerChange', _this, newLayer);
+                eve('t5.view.layer.change.' + _this.id, _this, id, newLayer);
     
                 // invalidate the map
                 viewChanges++;
@@ -5530,7 +5765,7 @@
                 refreshY = offsetY;
                 
                 // trigger the refresh event
-                _this.trigger('refresh', _this, vp);
+                eve('t5.view.refresh.' + _this.id, _this, vp);
     
                 // invalidate
                 viewChanges++;
@@ -5549,7 +5784,7 @@
             // if we have a layer, then remove it
             if (targetLayer) {
                 // trigger the beforeRemoveEvent
-                _this.trigger('beforeRemoveLayer', targetLayer);
+                eve('t5.view.layer.remove.' + _this.id, _this, targetLayer);
                 
                 var layerIndex = getLayerIndex(targetLayer.id);
                 if ((layerIndex >= 0) && (layerIndex < layerCount)) {
@@ -5559,9 +5794,6 @@
     
                 // update the layer count
                 layerCount = layers.length;
-    
-                // trigger the layer removal
-                targetLayer.trigger('removed');
             } // if
         } // removeLayer
         
@@ -5705,11 +5937,8 @@
             viewport: viewport
         };
         
-        // make the view observable
-        _observable(_this);
-        
         // handle the view being resynced
-        _this.bind('resize', handleResize);
+        eve.on('t5.view.resize.' + _this.id, handleResize);
     
         // route auto configuration methods
         _configurable(_this, params, {
@@ -5770,7 +5999,7 @@
             residualScaleFactor = 0,
             zoomTimeout = 0;
         
-        function checkScaling(evt, scaleFactor) {
+        function checkScaling(targetView, scaleFactor) {
             // calculate the scale factor exponent
             var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
     
@@ -5786,13 +6015,13 @@
             } // ifg
         } // checkScaling
         
-        function handleRefresh(evt) {
-            var viewport = _self.viewport();
+        function handleRefresh() {
+            var viewport = _this.viewport();
             
             // check the offset has changed (refreshes can happen for other reasons)
             if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
                 // trigger the event
-                _self.trigger('boundsChange', bounds());
+                eve('t5.view.boundsChange.' + _this.id, bounds());
     
                 // update the last bounds change offset
                 lastBoundsChangeOffset.x = viewport.x;
@@ -5806,7 +6035,7 @@
         ### bounds(newBounds)
         */
         function bounds(newBounds, maxZoomLevel) {
-            var viewport = _self.viewport();
+            var viewport = _this.viewport();
             
             if (newBounds) {
                 // calculate the zoom level we are going to
@@ -5817,8 +6046,8 @@
             }
             else {
                 return new GeoJS.BBox(
-                    new GeoXY(viewport.x, viewport.y2).sync(_self, true).pos(),
-                    new GeoXY(viewport.x2, viewport.y).sync(_self, true).pos()
+                    new GeoXY(viewport.x, viewport.y2).sync(_this, true).pos(),
+                    new GeoXY(viewport.x2, viewport.y).sync(_this, true).pos()
                 );
             } // if..else
         } // bounds
@@ -5831,8 +6060,8 @@
             if (_is(value, typeNumber)) {
                 value = max(params.minZoom, min(params.maxZoom, value | 0));
                 if (value !== zoomLevel) {
-                    var viewport = _self.viewport(),
-                        offset = _self.offset(),
+                    var viewport = _this.viewport(),
+                        offset = _this.offset(),
                         halfWidth = viewport.w / 2,
                         halfHeight = viewport.h / 2,
                         scaling = pow(2, value - zoomLevel),
@@ -5843,41 +6072,41 @@
                     zoomLevel = value;
     
                     // update the offset
-                    _self.offset(
+                    _this.offset(
                         ((zoomX || offset.x + halfWidth) - scaledHalfWidth) * scaling,
                         ((zoomY || offset.y + halfHeight) - scaledHalfHeight) * scaling
                     );
     
                     // trigger the change
-                    _self.trigger('zoom', value);
-                    _self.trigger('reset');
+                    eve('t5.view.zoom.' + _this.id, value);
+                    eve('t5.view.reset.' + _this.id);
                     
                     // update the rads per pixel to reflect the zoom level change
-                    rpp = _self.rpp = radsPerPixel(zoomLevel);
+                    rpp = _this.rpp = radsPerPixel(zoomLevel);
     
                     // calculate the grid size
-                    _self.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
+                    _this.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
     
                     // reset the scale factor
-                    _self.scale(1 + residualScaleFactor, false, true);
+                    _this.scale(1 + residualScaleFactor, false, true);
                     residualScaleFactor = 0;
     
                     // reset scaling and resync the map
-                    _self.trigger('resync');
+                    eve('t5.view.resync.' + _this.id);
     
                     // refresh the display
-                    _self.refresh();
+                    _this.refresh();
                 } // if
                 
                 // return the view so we can chain
-                return _self; 
+                return _this; 
             }
             else {
                 return zoomLevel;
             } // if..else
         } // zoom
         
-        var _self = _extend(new View(container, params), {
+        var _this = _extend(new View(container, params), {
             XY: GeoXY, 
             
             bounds: bounds,
@@ -5885,13 +6114,13 @@
         });
         
         // initialise the default rpp
-        rpp = _self.rpp = radsPerPixel(zoomLevel);
+        rpp = _this.rpp = radsPerPixel(zoomLevel);
         
         // bind events
-        _self.bind('refresh', handleRefresh);
-        _self.bind('scaleChanged', checkScaling);
+        eve.on('t5.view.refresh.' + _this.id, handleRefresh);
+        eve.on('t5.view.scale.' + _this.id, checkScaling);
         
-        return _self;
+        return _this;
     };
     
     var Tweener = (function() {
@@ -6042,9 +6271,6 @@
         this.translateX = 0;
         this.translateY = 0;
         this.visible = true;
-        
-        // make the shape observable
-        _observable(this);
     };
     
     Drawable.prototype = {
@@ -6211,7 +6437,7 @@
                 );
             
             if (moved) {
-                this.trigger('move', this, bounds, this.bounds);
+                eve('t5.move.' + this.typeName + '.' + this.id, this, bounds, this.bounds);
             } // if
             
             // update the bounds
@@ -6545,9 +6771,6 @@
         // initialise members
         this.visible = params.visible;
         this.view = view;
-    
-        // make view layers observable
-        _observable(_extend(this, params));
     }; // ViewLayer constructor
     
     ViewLayer.prototype = {
@@ -6614,18 +6837,18 @@
         
         /* event handlers */
     
-        function handleRefresh(evt) {
+        function handleRefresh() {
             if (storage) {
                 // fire the generator
                 genFn(storage, view.invalidate);
             } // if
         } // handleViewIdle
         
-        function handleReset(evt) {
+        function handleReset() {
             storage.clear();
         } // reset
         
-        function handleResync(evt) {
+        function handleResync() {
             // get the zoom level for the view
             var zoomLevel = view && view.zoom ? view.zoom() : 0;
             
@@ -6656,10 +6879,10 @@
             draw: draw
         });
         
-        view.bind('resync', handleResync);
-        view.bind('refresh', handleRefresh);
-        view.bind('reset', handleReset);
-        
+        eve.on('t5.view.resync.' + view.id, handleResync);
+        eve.on('t5.view.refresh.' + view.id, handleRefresh);
+        eve.on('t5.view.reset.' + view.id, handleReset);
+    
         return _self;
     });
     
@@ -6754,7 +6977,7 @@
             if (storage) {
                 // reset the storage
                 storage.clear();
-                _this.trigger('cleared');
+                eve('t5.layer.cleared.' + this.id);
     
                 // invalidate the view
                 view.invalidate();
@@ -6775,10 +6998,13 @@
     
             // attach a move event handler
             drawable.bind('move', handleItemMove);
-            drawable.trigger('created');
+            eve('t5.created.' + drawable.id);
     
             // update the item count
-            _this.trigger(type + 'Added', drawable);
+            eve('t5.added.' + type, drawable, _this);
+            
+            // invalidate the view
+            view.invalidate();
             
             // return the drawable
             return drawable;
@@ -6901,7 +7127,6 @@
     
     
     function Control(view) {
-        _observable(this);
     };
     
     Control.prototype = {
@@ -6957,15 +7182,14 @@
             
         function bindEvents() {
             // attach the event monitor
-            eventMonitor = INTERACT.watch(zoomBar, {
+            INTERACT.watch(zoomBar, {
                 bindTarget: zoomBar
             });
             
-            // handle pointer move events
-            eventMonitor.bind('pointerMove', handlePointerMove);
-            eventMonitor.bind('pointerDown', handlePointerDown);
-            eventMonitor.bind('pointerUp', handlePointerUp);
-            eventMonitor.bind('tap', handlePointerTap);
+            eve.on('interact.pointer.down', handlePointerDown);
+            eve.on('interact.pointer.move', handlePointerMove);
+            eve.on('interact.pointer.up', handlePointerUp);
+            eve.on('interact.tap', handlePointerTap);
         } // bindEvents
         
         function createButton(btnIndex, marginTop) {
@@ -7062,17 +7286,23 @@
         } // handleDetach
         
         function handlePointerDown(evt, absXY, relXY) {
+            if (this !== zoomBar) { return; }
+    
             updateSpriteState(evt.target, STATE_DOWN);
         } // handlePointerDown
         
         function handlePointerMove(evt, absXY, relXY) {
+            if (this !== zoomBar) { return; }
+    
             // update the thumb pos
             thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
-            
+    
             setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
         } // handlePointerMove
         
         function handlePointerTap(evt, absXY, relXY) {
+            if (this !== zoomBar) { return; }
+    
             var handler = tapHandlers[updateSpriteState(evt.target, STATE_DOWN)];
             if (handler) {
                 handler();
@@ -7080,6 +7310,8 @@
         }
         
         function handlePointerUp(evt, absXY, relXY) {
+            if (this !== zoomBar) { return; }
+    
             updateSpriteState(evt.target, STATE_STATIC);
         } // handlePointerUp
         
@@ -7199,13 +7431,13 @@
             return formatter(marginTop, marginLeft);
         } // getMargin
         
-        function handleCopyright(evt, copyright) {
+        function handleCopyright(targetView, copyright) {
             setText(view.getCopy());
         } // handleCopyrightUpdate
     
-        function handleDetach() {
+        function handleDetach(targetView, control) {
             // remove the image div from the panFrame
-            if (copydiv) {
+            if (control === copydiv) {
                 container.removeChild(copydiv);
             } // if
         } // handleDetach
@@ -7232,12 +7464,11 @@
             setText: setText
         });
     
-        // handle the predraw
-        _this.bind('detach', handleDetach);
+        eve.on('t5.view.control.detach.' + view.id, handleDetach);
         
         // if we don't have custom text respond to view copyright changes
         if (! params.text) {
-            view.bind('copyright', handleCopyright);
+            eve.on('t5.view.copyright.' + view.id, handleCopyright);
         } // if
     
         return _this;
@@ -7253,7 +7484,6 @@
         // expose some cog functions
         ex: _extend,
         log: _log,
-        observable: _observable,
         configurable: _configurable,
         formatter: _formatter,
         wordExists: _wordExists,

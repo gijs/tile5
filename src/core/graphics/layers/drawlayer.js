@@ -88,7 +88,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         if (storage) {
             // reset the storage
             storage.clear();
-            _this.trigger('cleared');
+            eve('t5.layer.cleared.' + this.id);
 
             // invalidate the view
             view.invalidate();
@@ -109,10 +109,13 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
 
         // attach a move event handler
         drawable.bind('move', handleItemMove);
-        drawable.trigger('created');
+        eve('t5.created.' + drawable.id);
 
         // update the item count
-        _this.trigger(type + 'Added', drawable);
+        eve('t5.added.' + type, drawable, _this);
+        
+        // invalidate the view
+        view.invalidate();
         
         // return the drawable
         return drawable;

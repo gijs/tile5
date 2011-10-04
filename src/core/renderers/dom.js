@@ -38,7 +38,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         imageDiv = null;
     } // handleDetach
     
-    function handleDrawComplete(evt, layers, viewport, tickcount, hits) {
+    function handleDrawComplete(targetView, layers, viewport, tickcount, hits) {
         // remove old tiles
         removeOldObjects();
     } // handlePredraw
@@ -58,7 +58,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         imageDiv.appendChild(image);
     } // handleTileLoad
     
-    function handleReset(evt) {
+    function handleReset() {
         currentTiles = {};
         
         // remove all the children of the image div (just to be sure)
@@ -68,7 +68,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
     } // handleReset
     
     function removeOldObjects() {
-        var elements = [].concat(imageDiv.childNodes),
+        var elements = imageDiv.childNodes,
             ii, tileId;
 
         // iterate through the elements and if the image is not a current tile, then remove it
@@ -134,9 +134,9 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         drawTiles: drawTiles
     });
     
-    _this.bind('drawComplete', handleDrawComplete);
-    _this.bind('detach', handleDetach);
-    view.bind('reset', handleReset);
+    eve.on('t5.view.rendered.' + view.id, handleDrawComplete);
+    eve.on('t5.view.renderer.detach.' + view.id, handleDetach);
+    eve.on('t5.view.reset.' + view.id, handleReset);
     
     return _this;
 });

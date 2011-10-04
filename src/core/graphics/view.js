@@ -1,3 +1,5 @@
+var viewCounter = 0;
+
 /**
 # T5.View
 */
@@ -9,6 +11,7 @@ var View = function(container, params) {
         copyright: '',
         drawOnScale: true,
         padding: 128, // other values 'auto'
+        id: 'view_' + viewCounter++,
         inertia: true,
         refreshDistance: 128,
         drawOnMove: false,
@@ -130,9 +133,6 @@ var View = function(container, params) {
         // clear the view tap timeout
         clearTimeout(viewTapTimeout);
 
-        // trigger the double tap event
-        _this.trigger('doubleTap', absXY, relXY, projXY);
-            
         if (params.scalable) {
             var center = _this.center();
             
@@ -148,6 +148,13 @@ var View = function(container, params) {
         } // if
     } // handleDoubleTap
     
+    function handlePan(evt, deltaX, deltaY) {
+        if (! dragObject) {
+            dx += deltaX;
+            dy += deltaY;
+        } // if
+    } // handlePan
+    
     function handlePointerDown(evt, absXY, relXY) {
         // reset the hover offset and the drag element
         dragObject = null;
@@ -155,9 +162,6 @@ var View = function(container, params) {
         
         // initialise the hit data
         initHitData('down', absXY, relXY);
-        
-        // bubble the event up
-        _this.trigger('pointerDown', absXY, relXY);
     } // handlePointerDown
     
     function handlePointerHover(evt, absXY, relXY) {
@@ -165,28 +169,17 @@ var View = function(container, params) {
         initHitData('hover', absXY, relXY);
     } // handlePointerHover
     
-    function handlePointerMove(evt, absXY, relXY, deltaXY) {
+    function handlePointerMove(evt, absXY, relXY) {
         // drag the selected if we 
         dragSelected(absXY, relXY, false);
-        
-        if (! dragObject) {
-            dx += deltaXY.x;
-            dy += deltaXY.y;
-        } // if
-        
-        // bubble the event up
-        _this.trigger('pointerMove', absXY, relXY, deltaXY);
     } // handlePointerMove
     
     function handlePointerUp(evt, absXY, relXY) {
         dragSelected(absXY, relXY, true);
         pointerDown = false;
-        
-        // bubble the event up
-        _this.trigger('pointerUp', absXY, relXY);
     } // handlePointerUp
     
-    function handleResize(evt) {
+    function handleResize() {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(function() {
             if (outer) {
@@ -207,13 +200,13 @@ var View = function(container, params) {
         }, 250);
     } // handleResize
     
-    function handlePointerTap(evt, absXY, relXY) {
+    function handlePointerTap(absXY, relXY) {
         // initialise the hit data
         initHitData('tap', absXY, relXY);
         
         // trigger a tap in 20ms unless an object has been tapped
         viewTapTimeout = setTimeout(function() {
-            _this.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+            eve('t5.tap.' + _this.id, _this, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
         }, 20);
     } // handlePointerTap
     
@@ -225,33 +218,36 @@ var View = function(container, params) {
         } // if
 
         if (DOM && renderer) {
+            var targetId = (renderer.interactTarget || outer).id || '*';
+            
             // recreate the event monitor
             eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
-                eventMonitor.bind('zoom', handleZoom);
-                eventMonitor.bind('doubleTap', handleDoubleTap);
+                eve.on('interact.zoom.' + targetId, handleZoom);
+                eve.on('interact.doubletap.' + targetId, handleDoubleTap);
             } // if
             
             // handle pointer down tests
-            eventMonitor.bind('pointerDown', handlePointerDown);
-            eventMonitor.bind('pointerMove', handlePointerMove);
-            eventMonitor.bind('pointerUp', handlePointerUp);
+            eve.on('interact.pointer.down.' + targetId, handlePointerDown);
+            eve.on('interact.pointer.move.' + targetId, handlePointerMove);
+            eve.on('interact.pointer.up.' + targetId, handlePointerUp);
+            eve.on('interact.pan.' + targetId, handlePan);
 
             if (params.captureHover) {
-                eventMonitor.bind('pointerHover', handlePointerHover);
+                eve.on('interact.pointer.hover.' + targetId, handlePointerHover);
             } // if
 
             // handle tap events
-            eventMonitor.bind('tap', handlePointerTap);
+            eve.on('interact.tap.' + targetId, handlePointerTap);
         } // if
     } // captureInteractionEvents
     
     function changeRenderer(value) {
         // if we have a renderer, then detach it
         if (renderer) {
-            renderer.trigger('detach');
+            eve('t5.view.renderer.detach.' + _this.id, _this, renderer);
             renderer = null;
         } // if
         
@@ -266,8 +262,8 @@ var View = function(container, params) {
         captureInteractionEvents();
 
         // reset the view (renderers will pick this up)
-        _this.trigger('changeRenderer', renderer);
-        _this.trigger('reset');
+        eve('t5.view.renderer.change.' + _this.id, _this, renderer);
+        eve('t5.view.reset.' + _this.id, _this);
 
         // refresh the display
         refresh();
@@ -324,7 +320,7 @@ var View = function(container, params) {
         
         // if we have existing controls, then tell them to detach
         for (ii = 0; ii < controls.length; ii++) {
-            controls[ii].trigger('detach');
+            eve('t5.view.control.detach.' + _this.id, _this, controls[ii]);
         } // for
         
         // clear the controls array
@@ -479,8 +475,8 @@ var View = function(container, params) {
 
         // if we have elements
         if (elements.length > 0) {
-            var downX = hitSample.gridX,
-                downY = hitSample.gridY;
+            var downX = hitSample.gridXY.x,
+                downY = hitSample.gridXY.y;
             
             // iterate through objects from last to first (first get drawn last so sit underneath)
             for (ii = elements.length; pointerDown && ii--; ) {
@@ -526,7 +522,7 @@ var View = function(container, params) {
         // update the panning flag
         scaleChanged = scaleFactor !== lastScaleFactor;
         if (scaleChanged) {
-            _this.trigger('scale');
+            eve('t5.view.scale.' + _this.id, _this);
         } // if
         
         if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
@@ -552,7 +548,7 @@ var View = function(container, params) {
 
         // trigger the enter frame event
         // TODO: investigate whether this can be removed...
-        // _this.trigger('enterFrame', tickCount, frameData);
+        // _this.tigger('enterFrame', tickCount, frameData);
         
         // if we a due for a redraw then do on
         if (renderer && frameData.draw) {
@@ -571,7 +567,7 @@ var View = function(container, params) {
             panY += dy;
             
             if (dx || dy) {
-                _this.trigger('pan');
+                eve('t5.view.pan.' + _this.id, _this, dx, dy);
             } // if
             
             // if transforms are supported, then scale and rotate as approprate
@@ -629,7 +625,7 @@ var View = function(container, params) {
                 // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
                 // trigger the predraw event
-                renderer.trigger('predraw', layers, vp, tickCount, hits);
+                eve('t5.view.predraw.' + _this.id, _this, layers, vp, tickCount, hits);
 
                 // reset the view changes count
                 viewChanges = 0;
@@ -663,10 +659,10 @@ var View = function(container, params) {
 
                 // get the renderer to render the view
                 // NB: some renderers will do absolutely nothing here...
-                renderer.trigger('render', vp);
+                eve('t5.view.render.' + _this.id, _this, vp);
 
                 // trigger the draw complete event
-                _this.trigger('drawComplete', vp, tickCount);
+                eve('t5.view.rendered.' + _this.id, _this, vp, tickCount);
 
                 // reset the view pan position
                 DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
@@ -708,7 +704,7 @@ var View = function(container, params) {
 
             // check for a scale factor change
             if (lastScaleFactor !== scaleFactor) {
-                _this.trigger('scaleChanged', scaleFactor);
+                eve('t5.view.scalechange.' + _this.id, _this, scaleFactor);
                 lastScaleFactor = scaleFactor;
             };
         } // if
@@ -744,7 +740,7 @@ var View = function(container, params) {
                 // if the layer is visible then check for hits
                 if (layers[ii].visible) {
                     hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _this) :
+                        layers[ii].hitGuess(hitSample.gridXY.x, hitSample.gridXY.y, _this) :
                         false);
                 } // if
             } // for
@@ -777,7 +773,7 @@ var View = function(container, params) {
     function addCopy(text) {
         // update the copyright and trigger the event
         copyright = copyright ? copyright + ' ' + text : text;
-        _this.trigger('copyright', copyright);
+        eve('t5.view.copyright.' + _this.id, _this, copyright);
     } // addCopy
     
     /**
@@ -839,7 +835,7 @@ var View = function(container, params) {
         
         // if we have a renderer, then detach 
         if (renderer) {
-            renderer.trigger('detach');
+            eve('t5.view.renderer.detach.' + _this.id, _this, renderer);
         } // if
         
         if (eventMonitor) {
@@ -991,11 +987,11 @@ var View = function(container, params) {
             layerCount = layers.length;                
 
             // trigger a refresh on the layer
-            _this.trigger('resync');
+            eve('t5.view.resync.' + _this.id, _this);
             refresh();
 
             // trigger a layer changed event
-            _this.trigger('layerChange', _this, newLayer);
+            eve('t5.view.layer.change.' + _this.id, _this, id, newLayer);
 
             // invalidate the map
             viewChanges++;
@@ -1034,7 +1030,7 @@ var View = function(container, params) {
             refreshY = offsetY;
             
             // trigger the refresh event
-            _this.trigger('refresh', _this, vp);
+            eve('t5.view.refresh.' + _this.id, _this, vp);
 
             // invalidate
             viewChanges++;
@@ -1053,7 +1049,7 @@ var View = function(container, params) {
         // if we have a layer, then remove it
         if (targetLayer) {
             // trigger the beforeRemoveEvent
-            _this.trigger('beforeRemoveLayer', targetLayer);
+            eve('t5.view.layer.remove.' + _this.id, _this, targetLayer);
             
             var layerIndex = getLayerIndex(targetLayer.id);
             if ((layerIndex >= 0) && (layerIndex < layerCount)) {
@@ -1063,9 +1059,6 @@ var View = function(container, params) {
 
             // update the layer count
             layerCount = layers.length;
-
-            // trigger the layer removal
-            targetLayer.trigger('removed');
         } // if
     } // removeLayer
     
@@ -1209,11 +1202,8 @@ var View = function(container, params) {
         viewport: viewport
     };
     
-    // make the view observable
-    _observable(_this);
-    
     // handle the view being resynced
-    _this.bind('resize', handleResize);
+    eve.on('t5.view.resize.' + _this.id, handleResize);
 
     // route auto configuration methods
     _configurable(_this, params, {

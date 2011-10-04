@@ -1,10 +1,10 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
+//= eve!
 //= cog!extend
 //= cog!log
 //= cog!stringtools
 //= cog!easing
-//= cog!observable
 //= cog!configurable
 //= cog!arraytools
 //= cog!typetools
@@ -12,7 +12,7 @@
 //= interact!interact
 
 // define T5
-var T5 = this.T5 = _observable({});
+var T5 = this.T5 = {};
 
 //= core/registry
 //= core/messages
@@ -69,7 +69,6 @@ _extend(T5, {
     // expose some cog functions
     ex: _extend,
     log: _log,
-    observable: _observable,
     configurable: _configurable,
     formatter: _formatter,
     wordExists: _wordExists,

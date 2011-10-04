@@ -47,15 +47,14 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         
     function bindEvents() {
         // attach the event monitor
-        eventMonitor = INTERACT.watch(zoomBar, {
+        INTERACT.watch(zoomBar, {
             bindTarget: zoomBar
         });
         
-        // handle pointer move events
-        eventMonitor.bind('pointerMove', handlePointerMove);
-        eventMonitor.bind('pointerDown', handlePointerDown);
-        eventMonitor.bind('pointerUp', handlePointerUp);
-        eventMonitor.bind('tap', handlePointerTap);
+        eve.on('interact.pointer.down', handlePointerDown);
+        eve.on('interact.pointer.move', handlePointerMove);
+        eve.on('interact.pointer.up', handlePointerUp);
+        eve.on('interact.tap', handlePointerTap);
     } // bindEvents
     
     function createButton(btnIndex, marginTop) {
@@ -152,17 +151,23 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     } // handleDetach
     
     function handlePointerDown(evt, absXY, relXY) {
+        if (this !== zoomBar) { return; }
+
         updateSpriteState(evt.target, STATE_DOWN);
     } // handlePointerDown
     
     function handlePointerMove(evt, absXY, relXY) {
+        if (this !== zoomBar) { return; }
+
         // update the thumb pos
         thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
-        
+
         setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
     } // handlePointerMove
     
     function handlePointerTap(evt, absXY, relXY) {
+        if (this !== zoomBar) { return; }
+
         var handler = tapHandlers[updateSpriteState(evt.target, STATE_DOWN)];
         if (handler) {
             handler();
@@ -170,6 +175,8 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     }
     
     function handlePointerUp(evt, absXY, relXY) {
+        if (this !== zoomBar) { return; }
+
         updateSpriteState(evt.target, STATE_STATIC);
     } // handlePointerUp
     

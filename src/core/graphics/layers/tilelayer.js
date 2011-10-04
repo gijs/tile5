@@ -17,18 +17,18 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     
     /* event handlers */
 
-    function handleRefresh(evt) {
+    function handleRefresh() {
         if (storage) {
             // fire the generator
             genFn(storage, view.invalidate);
         } // if
     } // handleViewIdle
     
-    function handleReset(evt) {
+    function handleReset() {
         storage.clear();
     } // reset
     
-    function handleResync(evt) {
+    function handleResync() {
         // get the zoom level for the view
         var zoomLevel = view && view.zoom ? view.zoom() : 0;
         
@@ -59,9 +59,9 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
         draw: draw
     });
     
-    view.bind('resync', handleResync);
-    view.bind('refresh', handleRefresh);
-    view.bind('reset', handleReset);
-    
+    eve.on('t5.view.resync.' + view.id, handleResync);
+    eve.on('t5.view.refresh.' + view.id, handleRefresh);
+    eve.on('t5.view.reset.' + view.id, handleReset);
+
     return _self;
 });

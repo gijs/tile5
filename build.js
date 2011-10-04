@@ -2,8 +2,9 @@ var interleave = require('interleave'),
     fs = require('fs'),
     config = {
         aliases: {
+            eve: 'github://DmitryBaranovskiy/eve/eve.js',
             geojs: 'github://DamonOehlman/geojs/lib/$1',
-            cog: 'github://sidelab/cog/cogs/$1',
+            cog: 'github://DamonOehlman/cog/cogs/$1',
             interact: 'github://DamonOehlman/interact/$1',
             timelord: 'github://sidelab/DamonOehlman/timelord',
             colorparser: 'lib/colorparser',

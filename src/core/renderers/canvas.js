@@ -116,7 +116,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         } // if
     } // handleDetach
     
-    function handlePredraw(evt, layers, viewport, tickcount, hits) {
+    function handlePredraw(layers, viewport, tickcount, hits) {
         var ii;
             
         // if we already have a context, then restore
@@ -148,10 +148,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         } // if
     } // handlePredraw
     
-    function handleResize() {
-    } // handleResize
-    
-    function handleStyleDefined(evt, styleId, styleData) {
+    function handleStyleDefined(styleId, styleData) {
         var ii, data;
         
         styleFns[styleId] = function(context) {
@@ -182,11 +179,11 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     
     function loadStyles() {
         Style.each(function(id, data) {
-            handleStyleDefined(null, id, data);
+            handleStyleDefined(id, data);
         });
         
         // capture style defined events so we know about new styles
-        T5.bind('styleDefined', handleStyleDefined);
+        eve.on('t5.style.*', handleStyleDefined);
     } // loadStyles
     
     function updateClearRect(x, y, w, h, full) {
@@ -465,9 +462,8 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         loadStyles();
 
         // handle detaching
-        _this.bind('predraw', handlePredraw);
-        _this.bind('detach', handleDetach);
-        _this.bind('resize', handleResize);        
+        eve.on('t5.view.predraw.' + view.id, handlePredraw);
+        eve.on('t5.view.detach.' + view.id, handleDetach);
     } // if
     
     return _this;

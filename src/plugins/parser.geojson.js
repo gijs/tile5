@@ -87,5 +87,5 @@ T5.GeoJSONParser = function(params) {
         run: run
     };
     
-    return T5.observable(_this);
+    return _this;
 };

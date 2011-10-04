@@ -41,8 +41,7 @@ Hits = (function() {
             type: hitType,
             x: transformedXY.x,
             y: transformedXY.y,
-            gridX: scaledXY.x | 0,
-            gridY: scaledXY.y | 0,
+            gridXY: scaledXY || new XY(),
             elements: [],
             
             // also store the original event data
@@ -79,7 +78,7 @@ Hits = (function() {
             elements ? elements : hitData.elements, 
             hitData.absXY,
             hitData.relXY,
-            new GeoXY(hitData.gridX, hitData.gridY)
+            hitData.gridXY
         );                
     } // triggerEvent
     

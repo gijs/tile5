@@ -52,13 +52,13 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
         return formatter(marginTop, marginLeft);
     } // getMargin
     
-    function handleCopyright(evt, copyright) {
+    function handleCopyright(targetView, copyright) {
         setText(view.getCopy());
     } // handleCopyrightUpdate
 
-    function handleDetach() {
+    function handleDetach(targetView, control) {
         // remove the image div from the panFrame
-        if (copydiv) {
+        if (control === copydiv) {
             container.removeChild(copydiv);
         } // if
     } // handleDetach
@@ -85,12 +85,11 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
         setText: setText
     });
 
-    // handle the predraw
-    _this.bind('detach', handleDetach);
+    eve.on('t5.view.control.detach.' + view.id, handleDetach);
     
     // if we don't have custom text respond to view copyright changes
     if (! params.text) {
-        view.bind('copyright', handleCopyright);
+        eve.on('t5.view.copyright.' + view.id, handleCopyright);
     } // if
 
     return _this;
