@@ -72,7 +72,7 @@ T5.Registry.register('layer', 'cluster', function(view, panFrame, container, par
     } // findClusters
     
     function findNearestCluster(targetX, targetY) {
-        var clusters = _self.find(),
+        var clusters = _this.find(),
             nearestCluster = null,
             minDist = Infinity;
         
@@ -94,14 +94,19 @@ T5.Registry.register('layer', 'cluster', function(view, panFrame, container, par
         return minDist <= bucketSize ? nearestCluster : null;
     } // findNearestCluster
         
-    function handleMarkerAdded(evt, marker) {
-        clearTimeout(clusterCheckTimeout);
-        clusterCheckTimeout = setTimeout(rebuild, 100);
+    function handleMarkerAdded() {
+        // if the event has been called on this layer, then process
+        if (this === sourceLayer) {
+            clearTimeout(clusterCheckTimeout);
+            clusterCheckTimeout = setTimeout(rebuild, 100);
+        } // if
     } // handlerMarkerAdded
     
     function handleMarkersCleared(evt) {
-        // clear ourself
-        _self.clear();
+        if (this === sourceLayer) {
+            // clear ourself
+            _this.clear();
+        } // if
     } // handleMarkersCleared
     
     function rebuild() {
@@ -129,7 +134,7 @@ T5.Registry.register('layer', 'cluster', function(view, panFrame, container, par
 
                 // if we didn't find a cluster, then create a new one
                 if (! cluster) {
-                    cluster = _self.create(
+                    cluster = _this.create(
                         'marker', 
                         T5.ex({}, markers[ii], {
                             children: []
@@ -149,7 +154,7 @@ T5.Registry.register('layer', 'cluster', function(view, panFrame, container, par
         // if we have a cluster image url, then check for hybrid clusters
         if (hybridImageUrl && typeProp) {
             // check the clusters and if appropriate, assign a hybrid image type
-            currentClusters = _self.find();
+            currentClusters = _this.find();
             for (ii = currentClusters.length; ii--; ) {
                 children = currentClusters[ii].children;
                 lastType = '';
@@ -189,11 +194,11 @@ T5.Registry.register('layer', 'cluster', function(view, panFrame, container, par
 
     /* exports */
     
-    var _self = T5.Registry.create('layer', 'draw', view, params);
+    var _this = T5.Registry.create('layer', 'draw', view, params);
     
     if (sourceLayer) {
-        sourceLayer.bind('markerAdded', handleMarkerAdded);
-        sourceLayer.bind('cleared', handleMarkersCleared);
+        eve.on('t5.added.marker', handleMarkerAdded);
+        eve.on('t5.layer.cleared', handleMarkersCleared);
         
         // set the source layer to invisible
         sourceLayer.visible = false;
@@ -203,5 +208,5 @@ T5.Registry.register('layer', 'cluster', function(view, panFrame, container, par
         T5.log('No source matching source layer, won\'t be clustering much today folks...', 'warn');
     } // if..else
     
-    return _self;
+    return _this;
 });

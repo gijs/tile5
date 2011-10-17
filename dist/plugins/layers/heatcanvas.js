@@ -43,13 +43,17 @@ T5.Registry.register('layer', 'heatcanvas', function(view, panFrame, container, 
     } // createCanvas
             
     function handleMarkerAdded(evt, marker) {
-        clearTimeout(rebuildTimeout);
-        rebuildTimeout = setTimeout(rebuild, 100);
+        if (this === sourceLayer) {
+            clearTimeout(rebuildTimeout);
+            rebuildTimeout = setTimeout(rebuild, 100);
+        } // if
     } // handlerMarkerAdded
     
     function handleMarkersCleared(evt) {
-        // clear ourself
-        // _self.clear();
+        if (this === sourceLayer) {
+            // clear ourself
+            // _this.clear();
+        } // if
     } // handleMarkersCleared
     
     /* exports */
@@ -91,14 +95,14 @@ T5.Registry.register('layer', 'heatcanvas', function(view, panFrame, container, 
         } // if
     } // rebuild
     
-    var _self = T5.ex(new T5.ViewLayer(view, panFrame, container, params), {
+    var _this = T5.ex(new T5.ViewLayer(view, panFrame, container, params), {
         draw: draw,
         rebuild: rebuild
     });
     
     if (sourceLayer) {
-        sourceLayer.bind('markerAdded', handleMarkerAdded);
-        sourceLayer.bind('cleared', handleMarkersCleared);
+        eve.on('t5.added.marker', handleMarkerAdded);
+        eve.on('t5.layer.cleared', handleMarkersCleared);
         
         // set the source layer to invisible
         sourceLayer.visible = false;
@@ -111,5 +115,5 @@ T5.Registry.register('layer', 'heatcanvas', function(view, panFrame, container, 
     // create the canvas 
     createCanvas();
     
-    return _self;
+    return _this;
 });

@@ -44,24 +44,26 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     
     /* event handlers */
     
-    function handleItemMove(evt, drawable, newBounds, oldBounds) {
+    function handleItemMove(newBounds, oldBounds) {
         if (storage) {
             // remove the item from the tree at the specified position
             if (oldBounds) {
-                storage.remove(oldBounds, drawable);
+                storage.remove(oldBounds, this);
             } // if
 
             // add the item back to the tree at the new position
-            storage.insert(newBounds, drawable);
+            storage.insert(newBounds, this);
         } // if
     } // handleItemMove
     
-    function handleRemoved(evt) {
-        // kill the storage
-        storage = null;
-        
-        // unbind the resync handler
-        view.unbind('resync', resyncCallbackId);
+    function handleRemoved(targetLayer) {
+        if (targetLayer === _this) {
+            // kill the storage
+            storage = null;
+
+            // unbind the resync handler
+            eve.unbind('t5.view.resync.' + view.id, handleResync);
+        } // if
     } // handleLayerRemove
     
     function handleResync(evt) {
@@ -88,7 +90,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         if (storage) {
             // reset the storage
             storage.clear();
-            eve('t5.layer.cleared.' + this.id);
+            eve('t5.layer.cleared.' + _this.id, _this);
 
             // invalidate the view
             view.invalidate();
@@ -108,11 +110,11 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         } // if
 
         // attach a move event handler
-        drawable.bind('move', handleItemMove);
-        eve('t5.created.' + drawable.id);
+        eve.on('t5.move.' + type + '.' + _this.id, handleItemMove);
+        eve('t5.created.' + drawable.id, _this);
 
         // update the item count
-        eve('t5.added.' + type, drawable, _this);
+        eve('t5.added.' + type, _this, drawable);
         
         // invalidate the view
         view.invalidate();
@@ -228,10 +230,10 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     });
     
     // bind to refresh events as we will use those to populate the items to be drawn
-    resyncCallbackId = view.bind('resync', handleResync);
+    eve.on('t5.view.resync.' + view.id, handleResync);
     
     // handle the layer being removed
-    _this.bind('removed', handleRemoved);
+    eve.on('t5.layer.remove', handleRemoved);
     
     return _this;
 });

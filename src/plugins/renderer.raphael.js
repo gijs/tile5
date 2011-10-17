@@ -327,9 +327,9 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     
     // handle the predraw event
     eve.on('t5.view.predraw.' + view.id, handlePredraw);
-    eve.on('t5.view.renderer.detach.' + view.id, handleDetach);
+    eve.on('t5.renderer.detach.' + view.id, handleDetach);
     eve.on('t5.view.reset.' + view.id, handleReset);
-    eve.on('t5.view.layer.remove.' + view.id, handleLayerRemove);
+    eve.on('t5.layer.remove.' + view.id, handleLayerRemove);
     
     // load styles
     loadStyles();

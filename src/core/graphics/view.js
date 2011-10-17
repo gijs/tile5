@@ -247,7 +247,7 @@ var View = function(container, params) {
     function changeRenderer(value) {
         // if we have a renderer, then detach it
         if (renderer) {
-            eve('t5.view.renderer.detach.' + _this.id, _this, renderer);
+            eve('t5.renderer.detach.' + _this.id, _this, renderer);
             renderer = null;
         } // if
         
@@ -262,7 +262,7 @@ var View = function(container, params) {
         captureInteractionEvents();
 
         // reset the view (renderers will pick this up)
-        eve('t5.view.renderer.change.' + _this.id, _this, renderer);
+        eve('t5.renderer.change.' + _this.id, _this, renderer);
         eve('t5.view.reset.' + _this.id, _this);
 
         // refresh the display
@@ -835,7 +835,7 @@ var View = function(container, params) {
         
         // if we have a renderer, then detach 
         if (renderer) {
-            eve('t5.view.renderer.detach.' + _this.id, _this, renderer);
+            eve('t5.renderer.detach.' + _this.id, _this, renderer);
         } // if
         
         if (eventMonitor) {
@@ -991,7 +991,7 @@ var View = function(container, params) {
             refresh();
 
             // trigger a layer changed event
-            eve('t5.view.layer.change.' + _this.id, _this, id, newLayer);
+            eve('t5.layer.change.' + _this.id, _this, id, newLayer);
 
             // invalidate the map
             viewChanges++;
@@ -1049,7 +1049,7 @@ var View = function(container, params) {
         // if we have a layer, then remove it
         if (targetLayer) {
             // trigger the beforeRemoveEvent
-            eve('t5.view.layer.remove.' + _this.id, _this, targetLayer);
+            eve('t5.layer.remove.' + _this.id, _this, targetLayer);
             
             var layerIndex = getLayerIndex(targetLayer.id);
             if ((layerIndex >= 0) && (layerIndex < layerCount)) {

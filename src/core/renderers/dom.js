@@ -135,7 +135,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
     });
     
     eve.on('t5.view.rendered.' + view.id, handleDrawComplete);
-    eve.on('t5.view.renderer.detach.' + view.id, handleDetach);
+    eve.on('t5.renderer.detach.' + view.id, handleDetach);
     eve.on('t5.view.reset.' + view.id, handleReset);
     
     return _this;

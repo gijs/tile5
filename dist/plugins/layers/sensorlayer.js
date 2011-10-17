@@ -164,9 +164,11 @@ T5.Registry.register('layer', 'sensor', function(view, panFrame, container, para
         );
     
         // handle removal of the layer
-        _this.bind('removed', function(evt) {
-            navigator.geolocation.clearWatch(watchId);
-        });
+        eve.on('t5.layer.remove', function(targetLayer) {
+            if (targetLayer === _this) {
+                navigator.geolocation.clearWatch(watchId);
+            } // if
+        }); 
     }
     // otherwise, warn
     else {

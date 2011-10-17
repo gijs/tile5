@@ -21,10 +21,6 @@ flag to the containing T5.View that an redraw is required.  Any objects that nee
 perform updates in response to this layer changing (including overriden implementations)
 can do this by binding to the change method
 
-~ layer.bind('change', function(evt, layer) {
-~   // do your updates here...
-~ });
-
 ## Methods
 
 */

@@ -16,28 +16,42 @@
 </head>
 
 <body>
+	<style>
+	html, body, #mapContainer {
+	    height: 100%;
+	    padding: 0;
+	    margin: 0;
+	    overflow: hidden;
+	}
+
+	.t5-copyright {
+	    background: rgba(255, 255, 255, 0.7);
+	    color: #333;
+	    padding: 4px 0 4px 8px;
+	    font: 0.7em Arial;
+	}
+
+	.t5-copyright a {
+	    color: #555;
+	}
+	</style>	
   {{#css}}
   <style type="text/css">{{this}}</style>
   {{/css}}
+  <div id="mapContainer"></div>
+  <div style="display:none">
   {{{ body }}}
+  </div>
 
 
-  <!--[if lt IE 7 ]>
-    <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js"></script>
-    <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
-  <![endif]-->
-
+  <script src="../dist/tile5.cloudmade.js"></script>
   <script src="_demogen/js/keymaster.min.js"></script>
   <script src="_demogen/js/jquery-1.6.2.min.js"></script>
-  <script src="_demogen/js/ace/ace.js"></script>
-  <script src="_demogen/js/ace/theme-{{ theme }}.js"></script>
-  <script src="_demogen/js/ace/mode-{{ mode }}.js"></script>
   <script src="_demogen/js/runner.js"></script>
-  <script src="../dist/tile5.cloudmade.js"></script>
-  {{#includes}}<script src="{{ this }}"></script>{{/includes}}
   <script>
   var settings = {{{ settings }}};
   </script>
+  {{#includes}}<script src="{{ this }}"></script>{{/includes}}
   <script defer="defer">{{{ code }}}</script>
 </body>
 </html>

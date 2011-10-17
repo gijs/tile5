@@ -142,12 +142,14 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         return 'url(' + params.images + ') 0 -' + spriteOffset + 'px'; 
     } // getThumbBackground
     
-    function handleDetach() {
-        // unbind the event monitor
-        eventMonitor.unbind();
-        
-        // remove the image div from the panFrame
-        container.removeChild(zoomBar);
+    function handleDetach(control) {
+        if (control === _this) {
+            // unbind the event monitor
+            eventMonitor.unbind();
+
+            // remove the image div from the panFrame
+            container.removeChild(zoomBar);
+        } // if
     } // handleDetach
     
     function handlePointerDown(evt, absXY, relXY) {
@@ -180,7 +182,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         updateSpriteState(evt.target, STATE_STATIC);
     } // handlePointerUp
     
-    function handleZoomLevelChange(evt, zoomLevel) {
+    function handleZoomLevelChange(zoomLevel) {
         setThumbVal(zoomLevel);
     } // handleZoomLevelChange
     
@@ -231,10 +233,10 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     var _this = new Control(view);
     
     // handle the predraw
-    _this.bind('detach', handleDetach);
+    eve.on('t5.view.control.detach', handleDetach);
     
     // bind to the view zoom level change event
-    view.bind('zoom', handleZoomLevelChange);
+    eve.on('t5.view.zoom.' + view.id, handleZoomLevelChange);
     
     // set the zoom level to the current zoom level of the view
     setThumbVal(view.zoom());

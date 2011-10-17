@@ -1,6 +1,5 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
-//= eve!
 //= cog!extend
 //= cog!log
 //= cog!stringtools
