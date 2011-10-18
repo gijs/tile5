@@ -225,7 +225,7 @@ var View = function(container, params) {
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
-                eve.on('interact.zoom.' + targetId, handleZoom);
+                eve.on('interact.zoom.*.' + targetId, handleZoom);
                 eve.on('interact.doubletap.' + targetId, handleDoubleTap);
             } // if
             

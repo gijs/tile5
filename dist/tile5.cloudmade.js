@@ -1804,7 +1804,7 @@
                     var clickXY = getPagePos(evt);
                     
                     eve(
-                        'interact.doubleTap' + evtTargetId,
+                        'interact.doubletap' + evtTargetId,
                         targetElement,
                         evt,
                         clickXY, 
@@ -2331,6 +2331,7 @@
             watch: watch
         };
     })();
+    
     
     
     
@@ -4676,7 +4677,7 @@
     
                 // if this view is scalable, attach zooming event handlers
                 if (params.scalable) {
-                    eve.on('interact.zoom.' + targetId, handleZoom);
+                    eve.on('interact.zoom.*.' + targetId, handleZoom);
                     eve.on('interact.doubletap.' + targetId, handleDoubleTap);
                 } // if
                 
